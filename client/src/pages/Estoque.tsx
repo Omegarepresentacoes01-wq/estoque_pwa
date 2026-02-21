@@ -1,13 +1,15 @@
 import { trpc } from "@/lib/trpc";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import { Search, Filter, Plus, Edit2, Trash2, Download, X, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
+import { Search, Filter, Plus, Edit2, Trash2, Download, X, ChevronLeft, ChevronRight, ArrowUpDown, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useIsMobile } from "@/hooks/useMobile.tsx";
 
 type Veiculo = {
   id: number; numero: number | null; nf: string | null; dataEmissao: string | null;
@@ -20,7 +22,7 @@ type Veiculo = {
 
 function StatusBadge({ status }: { status: string }) {
   const cls = status === 'LIVRE' ? 'badge-livre' : status === 'RESERVADO' ? 'badge-reservado' : 'badge-vendido';
-  return <span className={`${cls} px-2 py-0.5 rounded-full text-xs font-semibold`}>{status}</span>;
+  return <span className={`${cls} px-2 py-0.5 rounded-full text-xs`}>{status}</span>;
 }
 
 function DiasBadge({ dias }: { dias: number | null }) {
@@ -35,7 +37,27 @@ const EMPTY_FORM = {
   cliente: '', estoquesFisico: '', observacao: '', implemento: '', pneu: '', defletor: '',
 };
 
+const TABLE_COLS = [
+  { key: 'numero', label: '#', mobile: false },
+  { key: 'nf', label: 'NF', mobile: true },
+  { key: 'dataEmissao', label: 'Emissão', mobile: false },
+  { key: 'cod', label: 'COD', mobile: false },
+  { key: 'modelo', label: 'Modelo', mobile: true },
+  { key: 'anoMod', label: 'Ano', mobile: false },
+  { key: 'cor', label: 'Cor', mobile: false },
+  { key: 'chassi', label: 'Chassi', mobile: false },
+  { key: 'dataChegadaCovezi', label: 'Chegada', mobile: false },
+  { key: 'status', label: 'Status', mobile: true },
+  { key: 'diasEstoque', label: 'Dias Est.', mobile: true },
+  { key: 'diasPatio', label: 'Dias Pátio', mobile: false },
+  { key: 'cliente', label: 'Cliente', mobile: false },
+  { key: 'estoquesFisico', label: 'Local', mobile: true },
+  { key: 'pneu', label: 'Pneu', mobile: false },
+  { key: 'implemento', label: 'Impl.', mobile: false },
+];
+
 export default function Estoque() {
+  const isMobile = useIsMobile();
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({ status: 'TODOS', estoquesFisico: 'TODOS', cor: 'TODOS', pneu: 'TODOS', cod: 'TODOS', diasEstoqueMin: '', diasEstoqueMax: '' });
   const [showFilters, setShowFilters] = useState(false);
@@ -97,7 +119,7 @@ export default function Estoque() {
   };
 
   const handleSubmit = () => {
-    const data = {
+    const d = {
       numero: form.numero ? Number(form.numero) : null,
       nf: form.nf || null, dataEmissao: form.dataEmissao || null, cod: form.cod || null,
       modelo: form.modelo || null, anoMod: form.anoMod || null, cor: form.cor || null,
@@ -109,219 +131,279 @@ export default function Estoque() {
       observacao: form.observacao || null, implemento: form.implemento || null,
       pneu: form.pneu || null, defletor: form.defletor || null,
     };
-    if (editVeiculo) updateMutation.mutate({ id: editVeiculo.id, data });
-    else createMutation.mutate(data);
+    if (editVeiculo) updateMutation.mutate({ id: editVeiculo.id, data: d });
+    else createMutation.mutate(d);
   };
 
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / pageSize);
   const veiculos = data?.data ?? [];
+  const activeFiltersCount = Object.entries(filters).filter(([k, v]) => v && v !== 'TODOS').length;
 
   const SortIcon = ({ col }: { col: string }) => (
     <ArrowUpDown className={`w-3 h-3 ml-1 inline ${orderBy === col ? 'text-primary' : 'text-muted-foreground/40'}`} />
   );
 
+  // Filter panel content (shared between desktop inline and mobile sheet)
+  const FilterContent = () => (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      {[
+        { key: 'status', label: 'Status', options: [{ v: 'TODOS', l: 'Todos' }, { v: 'LIVRE', l: 'Livre' }, { v: 'RESERVADO', l: 'Reservado' }, { v: 'VENDIDO', l: 'Vendido' }] },
+        { key: 'estoquesFisico', label: 'Localização', options: [{ v: 'TODOS', l: 'Todos' }, ...(filtrosData?.locais ?? []).map(l => ({ v: l!, l: l! }))] },
+        { key: 'cor', label: 'Cor', options: [{ v: 'TODOS', l: 'Todas' }, ...(filtrosData?.cores ?? []).map(c => ({ v: c!, l: c! }))] },
+        { key: 'pneu', label: 'Pneu', options: [{ v: 'TODOS', l: 'Todos' }, ...(filtrosData?.pneus ?? []).map(p => ({ v: p!, l: p! }))] },
+      ].map(f => (
+        <div key={f.key}>
+          <Label className="text-xs text-muted-foreground mb-1.5 block font-medium">{f.label}</Label>
+          <Select value={(filters as any)[f.key]} onValueChange={v => { setFilters(prev => ({ ...prev, [f.key]: v })); setPage(1); }}>
+            <SelectTrigger className="h-9 text-xs bg-background border-2 border-border"><SelectValue /></SelectTrigger>
+            <SelectContent>{f.options.map(o => <SelectItem key={o.v} value={o.v}>{o.l}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+      ))}
+      <div>
+        <Label className="text-xs text-muted-foreground mb-1.5 block font-medium">Dias Mín.</Label>
+        <Input type="number" placeholder="0" value={filters.diasEstoqueMin} onChange={e => { setFilters(f => ({ ...f, diasEstoqueMin: e.target.value })); setPage(1); }} className="h-9 text-xs bg-background border-2 border-border" />
+      </div>
+      <div>
+        <Label className="text-xs text-muted-foreground mb-1.5 block font-medium">Dias Máx.</Label>
+        <Input type="number" placeholder="999" value={filters.diasEstoqueMax} onChange={e => { setFilters(f => ({ ...f, diasEstoqueMax: e.target.value })); setPage(1); }} className="h-9 text-xs bg-background border-2 border-border" />
+      </div>
+      {activeFiltersCount > 0 && (
+        <div className="col-span-2 sm:col-span-3 flex justify-end">
+          <Button variant="outline" size="sm" onClick={() => { setFilters({ status: 'TODOS', estoquesFisico: 'TODOS', cor: 'TODOS', pneu: 'TODOS', cod: 'TODOS', diasEstoqueMin: '', diasEstoqueMax: '' }); setPage(1); }} className="text-xs border-2">
+            <X className="w-3 h-3 mr-1" /> Limpar filtros
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Estoque Geral</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">Estoque Geral</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{total} veículos encontrados</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleExport} className="gap-1.5 text-xs">
-            <Download className="w-3.5 h-3.5" /> Exportar CSV
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={handleExport} className="gap-1.5 text-xs border-2">
+            <Download className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Exportar CSV</span>
+            <span className="sm:hidden">CSV</span>
           </Button>
           <Button size="sm" onClick={() => { setForm(EMPTY_FORM); setEditVeiculo(null); setShowForm(true); }} className="gap-1.5 text-xs">
-            <Plus className="w-3.5 h-3.5" /> Novo Veículo
+            <Plus className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Novo Veículo</span>
+            <span className="sm:hidden">Novo</span>
           </Button>
         </div>
       </div>
 
-      {/* Search & Filters */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
+      {/* Search & Filter Toggle */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
           <Input
-            placeholder="Buscar por NF, chassi, modelo, cliente, código..."
+            placeholder={isMobile ? "Buscar..." : "Buscar por NF, chassi, modelo, cliente..."}
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
-            className="pl-9 h-9 text-sm bg-card border-border/50"
+            className="pl-9 h-10 text-sm bg-card border-2 border-border"
           />
-          {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="w-3.5 h-3.5 text-muted-foreground" /></button>}
+          {search && (
+            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+              <X className="w-3.5 h-3.5 text-muted-foreground" />
+            </button>
+          )}
         </div>
-        <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)} className={`gap-1.5 text-xs h-9 ${showFilters ? 'border-primary text-primary' : ''}`}>
-          <Filter className="w-3.5 h-3.5" /> Filtros
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowFilters(!showFilters)}
+          className={`gap-1.5 text-xs h-10 border-2 relative ${activeFiltersCount > 0 ? 'border-primary text-primary bg-primary/5' : ''}`}
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Filtros</span>
+          {activeFiltersCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center">
+              {activeFiltersCount}
+            </span>
+          )}
         </Button>
       </div>
 
-      {/* Filter Panel */}
-      {showFilters && (
-        <div className="rounded-xl border border-border/50 bg-card p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div>
-            <Label className="text-xs text-muted-foreground mb-1.5 block">Status</Label>
-            <Select value={filters.status} onValueChange={v => { setFilters(f => ({ ...f, status: v })); setPage(1); }}>
-              <SelectTrigger className="h-8 text-xs bg-background border-border/50">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="TODOS">Todos</SelectItem>
-                <SelectItem value="LIVRE">Livre</SelectItem>
-                <SelectItem value="RESERVADO">Reservado</SelectItem>
-                <SelectItem value="VENDIDO">Vendido</SelectItem>
-              </SelectContent>
-            </Select>
+      {/* Desktop Filter Panel */}
+      {!isMobile && showFilters && (
+        <div className="rounded-xl border-2 border-border bg-card p-4">
+          <FilterContent />
+        </div>
+      )}
+
+      {/* Mobile Filter Sheet */}
+      {isMobile && (
+        <Sheet open={showFilters} onOpenChange={setShowFilters}>
+          <SheetContent side="bottom" className="rounded-t-2xl border-t-2 border-border max-h-[85vh] overflow-y-auto">
+            <SheetHeader className="pb-4">
+              <SheetTitle className="text-foreground">Filtros</SheetTitle>
+            </SheetHeader>
+            <FilterContent />
+            <div className="mt-4 pb-2">
+              <Button className="w-full" onClick={() => setShowFilters(false)}>Aplicar Filtros</Button>
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {/* Mobile Card View */}
+      {isMobile ? (
+        <div className="space-y-2">
+          {isLoading ? (
+            Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="rounded-xl border-2 border-border bg-card p-4 space-y-2">
+                <div className="skeleton h-4 w-3/4 rounded" />
+                <div className="skeleton h-3 w-1/2 rounded" />
+                <div className="skeleton h-3 w-2/3 rounded" />
+              </div>
+            ))
+          ) : veiculos.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground text-sm">Nenhum veículo encontrado</div>
+          ) : (
+            veiculos.map((v: any) => (
+              <div key={v.id} className="rounded-xl border-2 border-border bg-card p-4 space-y-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground truncate leading-tight">{v.modelo}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 font-mono">{v.chassi}</p>
+                  </div>
+                  <StatusBadge status={v.status} />
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  <div><span className="text-muted-foreground">NF:</span> <span className="text-foreground font-mono">{v.nf || '-'}</span></div>
+                  <div><span className="text-muted-foreground">Ano:</span> <span className="text-foreground">{v.anoMod || '-'}</span></div>
+                  <div><span className="text-muted-foreground">Local:</span> <span className="text-foreground">{v.estoquesFisico || '-'}</span></div>
+                  <div><span className="text-muted-foreground">Dias:</span> <DiasBadge dias={v.diasEstoque} /></div>
+                  {v.cliente && <div className="col-span-2"><span className="text-muted-foreground">Cliente:</span> <span className="text-foreground">{v.cliente}</span></div>}
+                </div>
+                <div className="flex items-center justify-end gap-2 pt-1 border-t border-border">
+                  <button onClick={() => openEdit(v)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border-2 border-border hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-colors">
+                    <Edit2 className="w-3.5 h-3.5" /> Editar
+                  </button>
+                  <button onClick={() => setDeleteId(v.id)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border-2 border-border hover:bg-destructive/10 hover:border-destructive/40 hover:text-destructive transition-colors">
+                    <Trash2 className="w-3.5 h-3.5" /> Excluir
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      ) : (
+        /* Desktop Table */
+        <div className="rounded-xl border-2 border-border bg-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b-2 border-border table-header-light">
+                  {TABLE_COLS.map(col => (
+                    <th
+                      key={col.key}
+                      className="text-left py-3 px-3 text-xs font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap cursor-pointer hover:text-foreground transition-colors"
+                      onClick={() => handleSort(col.key)}
+                    >
+                      {col.label}<SortIcon col={col.key} />
+                    </th>
+                  ))}
+                  <th className="py-3 px-3 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  Array.from({ length: 10 }).map((_, i) => (
+                    <tr key={i} className="border-b border-border/50">
+                      {Array.from({ length: 17 }).map((_, j) => (
+                        <td key={j} className="py-3 px-3"><div className="skeleton h-3 w-full rounded" /></td>
+                      ))}
+                    </tr>
+                  ))
+                ) : veiculos.length === 0 ? (
+                  <tr><td colSpan={17} className="py-12 text-center text-muted-foreground text-sm">Nenhum veículo encontrado</td></tr>
+                ) : (
+                  veiculos.map((v: any) => (
+                    <tr key={v.id} className="border-b border-border/50 hover:bg-accent/30 transition-colors group">
+                      <td className="py-2.5 px-3 text-muted-foreground font-mono">{v.numero}</td>
+                      <td className="py-2.5 px-3 font-mono text-foreground font-semibold">{v.nf}</td>
+                      <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">{v.dataEmissao ? new Date(v.dataEmissao).toLocaleDateString('pt-BR') : '-'}</td>
+                      <td className="py-2.5 px-3 text-muted-foreground font-mono">{v.cod}</td>
+                      <td className="py-2.5 px-3 text-foreground max-w-[200px]"><div className="truncate font-medium" title={v.modelo ?? ''}>{v.modelo}</div></td>
+                      <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">{v.anoMod}</td>
+                      <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">{v.cor}</td>
+                      <td className="py-2.5 px-3 font-mono text-muted-foreground text-xs whitespace-nowrap">{v.chassi}</td>
+                      <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">{v.dataChegadaCovezi ? new Date(v.dataChegadaCovezi).toLocaleDateString('pt-BR') : '-'}</td>
+                      <td className="py-2.5 px-3 whitespace-nowrap"><StatusBadge status={v.status} /></td>
+                      <td className="py-2.5 px-3 whitespace-nowrap"><DiasBadge dias={v.diasEstoque} /></td>
+                      <td className="py-2.5 px-3 text-muted-foreground">{v.diasPatio}</td>
+                      <td className="py-2.5 px-3 text-muted-foreground max-w-[120px]"><div className="truncate" title={v.cliente ?? ''}>{v.cliente || '-'}</div></td>
+                      <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">{v.estoquesFisico}</td>
+                      <td className="py-2.5 px-3 text-muted-foreground">{v.pneu}</td>
+                      <td className="py-2.5 px-3 text-muted-foreground">{v.implemento || '-'}</td>
+                      <td className="py-2.5 px-3 text-right">
+                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => openEdit(v)} className="p-1.5 rounded-md border border-transparent hover:border-primary/40 hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setDeleteId(v.id)} className="p-1.5 rounded-md border border-transparent hover:border-destructive/40 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-          <div>
-            <Label className="text-xs text-muted-foreground mb-1.5 block">Localização</Label>
-            <Select value={filters.estoquesFisico} onValueChange={v => { setFilters(f => ({ ...f, estoquesFisico: v })); setPage(1); }}>
-              <SelectTrigger className="h-8 text-xs bg-background border-border/50">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="TODOS">Todos</SelectItem>
-                {filtrosData?.locais.map(l => <SelectItem key={l} value={l!}>{l}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground mb-1.5 block">Cor</Label>
-            <Select value={filters.cor} onValueChange={v => { setFilters(f => ({ ...f, cor: v })); setPage(1); }}>
-              <SelectTrigger className="h-8 text-xs bg-background border-border/50">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="TODOS">Todas</SelectItem>
-                {filtrosData?.cores.map(c => <SelectItem key={c} value={c!}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground mb-1.5 block">Pneu</Label>
-            <Select value={filters.pneu} onValueChange={v => { setFilters(f => ({ ...f, pneu: v })); setPage(1); }}>
-              <SelectTrigger className="h-8 text-xs bg-background border-border/50">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="TODOS">Todos</SelectItem>
-                {filtrosData?.pneus.map(p => <SelectItem key={p} value={p!}>{p}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground mb-1.5 block">Dias Mín.</Label>
-            <Input type="number" placeholder="0" value={filters.diasEstoqueMin} onChange={e => { setFilters(f => ({ ...f, diasEstoqueMin: e.target.value })); setPage(1); }} className="h-8 text-xs bg-background border-border/50" />
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground mb-1.5 block">Dias Máx.</Label>
-            <Input type="number" placeholder="999" value={filters.diasEstoqueMax} onChange={e => { setFilters(f => ({ ...f, diasEstoqueMax: e.target.value })); setPage(1); }} className="h-8 text-xs bg-background border-border/50" />
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between px-4 py-3 border-t-2 border-border">
+            <span className="text-xs text-muted-foreground font-medium">
+              {Math.min((page - 1) * pageSize + 1, total)}–{Math.min(page * pageSize, total)} de {total}
+            </span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-1.5 rounded-md border-2 border-border hover:bg-accent disabled:opacity-30 transition-colors">
+                <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+              </button>
+              <span className="text-xs text-muted-foreground px-2 font-medium">{page} / {totalPages || 1}</span>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="p-1.5 rounded-md border-2 border-border hover:bg-accent disabled:opacity-30 transition-colors">
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Table */}
-      <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-border/50" style={{ background: 'oklch(0.14 0.02 250)' }}>
-                {[
-                  { key: 'numero', label: '#' },
-                  { key: 'nf', label: 'NF' },
-                  { key: 'dataEmissao', label: 'Emissão' },
-                  { key: 'cod', label: 'COD' },
-                  { key: 'modelo', label: 'Modelo' },
-                  { key: 'anoMod', label: 'Ano' },
-                  { key: 'cor', label: 'Cor' },
-                  { key: 'chassi', label: 'Chassi' },
-                  { key: 'dataChegadaCovezi', label: 'Chegada' },
-                  { key: 'status', label: 'Status' },
-                  { key: 'diasEstoque', label: 'Dias Est.' },
-                  { key: 'diasPatio', label: 'Dias Pátio' },
-                  { key: 'cliente', label: 'Cliente' },
-                  { key: 'estoquesFisico', label: 'Local' },
-                  { key: 'pneu', label: 'Pneu' },
-                  { key: 'implemento', label: 'Impl.' },
-                ].map(col => (
-                  <th key={col.key} className="text-left py-3 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort(col.key)}>
-                    {col.label}<SortIcon col={col.key} />
-                  </th>
-                ))}
-                <th className="py-3 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                Array.from({ length: 10 }).map((_, i) => (
-                  <tr key={i} className="border-b border-border/30">
-                    {Array.from({ length: 17 }).map((_, j) => (
-                      <td key={j} className="py-3 px-3"><div className="skeleton h-3 w-full rounded" /></td>
-                    ))}
-                  </tr>
-                ))
-              ) : veiculos.length === 0 ? (
-                <tr><td colSpan={17} className="py-12 text-center text-muted-foreground text-sm">Nenhum veículo encontrado</td></tr>
-              ) : (
-                veiculos.map((v: any) => (
-                  <tr key={v.id} className="border-b border-border/30 hover:bg-accent/20 transition-colors group">
-                    <td className="py-2.5 px-3 text-muted-foreground font-mono">{v.numero}</td>
-                    <td className="py-2.5 px-3 font-mono text-foreground">{v.nf}</td>
-                    <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">{v.dataEmissao ? new Date(v.dataEmissao).toLocaleDateString('pt-BR') : '-'}</td>
-                    <td className="py-2.5 px-3 text-muted-foreground font-mono">{v.cod}</td>
-                    <td className="py-2.5 px-3 text-foreground max-w-[200px]"><div className="truncate" title={v.modelo ?? ''}>{v.modelo}</div></td>
-                    <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">{v.anoMod}</td>
-                    <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">{v.cor}</td>
-                    <td className="py-2.5 px-3 font-mono text-muted-foreground text-xs whitespace-nowrap">{v.chassi}</td>
-                    <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">{v.dataChegadaCovezi ? new Date(v.dataChegadaCovezi).toLocaleDateString('pt-BR') : '-'}</td>
-                    <td className="py-2.5 px-3 whitespace-nowrap"><StatusBadge status={v.status} /></td>
-                    <td className="py-2.5 px-3 whitespace-nowrap"><DiasBadge dias={v.diasEstoque} /></td>
-                    <td className="py-2.5 px-3 text-muted-foreground">{v.diasPatio}</td>
-                    <td className="py-2.5 px-3 text-muted-foreground max-w-[120px]"><div className="truncate" title={v.cliente ?? ''}>{v.cliente || '-'}</div></td>
-                    <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">{v.estoquesFisico}</td>
-                    <td className="py-2.5 px-3 text-muted-foreground">{v.pneu}</td>
-                    <td className="py-2.5 px-3 text-muted-foreground">{v.implemento || '-'}</td>
-                    <td className="py-2.5 px-3 text-right">
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => openEdit(v)} className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors">
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => setDeleteId(v.id)} className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-border/30">
-          <span className="text-xs text-muted-foreground">
-            {Math.min((page - 1) * pageSize + 1, total)}–{Math.min(page * pageSize, total)} de {total}
-          </span>
-          <div className="flex items-center gap-1">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-1.5 rounded-md hover:bg-accent disabled:opacity-30 transition-colors">
+      {/* Mobile Pagination */}
+      {isMobile && total > pageSize && (
+        <div className="flex items-center justify-between px-1 py-2">
+          <span className="text-xs text-muted-foreground">{Math.min((page - 1) * pageSize + 1, total)}–{Math.min(page * pageSize, total)} de {total}</span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="h-9 w-9 flex items-center justify-center rounded-lg border-2 border-border hover:bg-accent disabled:opacity-30 transition-colors">
               <ChevronLeft className="w-4 h-4 text-muted-foreground" />
             </button>
-            <span className="text-xs text-muted-foreground px-2">{page} / {totalPages}</span>
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-1.5 rounded-md hover:bg-accent disabled:opacity-30 transition-colors">
+            <span className="text-xs font-medium text-muted-foreground">{page}/{totalPages || 1}</span>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="h-9 w-9 flex items-center justify-center rounded-lg border-2 border-border hover:bg-accent disabled:opacity-30 transition-colors">
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
             </button>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Form Dialog */}
       <Dialog open={showForm || !!editVeiculo} onOpenChange={open => { if (!open) { setShowForm(false); setEditVeiculo(null); } }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card border-border/50">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card border-2 border-border mx-3 sm:mx-auto">
           <DialogHeader>
             <DialogTitle className="text-foreground">{editVeiculo ? 'Editar Veículo' : 'Novo Veículo'}</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-3 py-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
             {[
               { key: 'numero', label: 'Número', type: 'number' },
               { key: 'nf', label: 'NF', type: 'text' },
@@ -340,14 +422,14 @@ export default function Estoque() {
               { key: 'defletor', label: 'Defletor', type: 'text' },
             ].map(f => (
               <div key={f.key}>
-                <Label className="text-xs text-muted-foreground mb-1 block">{f.label}</Label>
-                <Input type={f.type} value={(form as any)[f.key]} onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))} className="h-8 text-xs bg-background border-border/50" />
+                <Label className="text-xs text-muted-foreground mb-1 block font-medium">{f.label}</Label>
+                <Input type={f.type} value={(form as any)[f.key]} onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))} className="h-10 text-sm bg-background border-2 border-border" />
               </div>
             ))}
             <div>
-              <Label className="text-xs text-muted-foreground mb-1 block">Status</Label>
+              <Label className="text-xs text-muted-foreground mb-1 block font-medium">Status</Label>
               <Select value={form.status} onValueChange={v => setForm(prev => ({ ...prev, status: v as any }))}>
-                <SelectTrigger className="h-8 text-xs bg-background border-border/50"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-10 text-sm bg-background border-2 border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="LIVRE">Livre</SelectItem>
                   <SelectItem value="RESERVADO">Reservado</SelectItem>
@@ -355,18 +437,18 @@ export default function Estoque() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="col-span-2">
-              <Label className="text-xs text-muted-foreground mb-1 block">Modelo</Label>
-              <Input value={form.modelo} onChange={e => setForm(prev => ({ ...prev, modelo: e.target.value }))} className="h-8 text-xs bg-background border-border/50" />
+            <div className="col-span-1 sm:col-span-2">
+              <Label className="text-xs text-muted-foreground mb-1 block font-medium">Modelo</Label>
+              <Input value={form.modelo} onChange={e => setForm(prev => ({ ...prev, modelo: e.target.value }))} className="h-10 text-sm bg-background border-2 border-border" />
             </div>
-            <div className="col-span-2">
-              <Label className="text-xs text-muted-foreground mb-1 block">Observação</Label>
-              <Textarea value={form.observacao} onChange={e => setForm(prev => ({ ...prev, observacao: e.target.value }))} className="text-xs bg-background border-border/50 resize-none" rows={2} />
+            <div className="col-span-1 sm:col-span-2">
+              <Label className="text-xs text-muted-foreground mb-1 block font-medium">Observação</Label>
+              <Textarea value={form.observacao} onChange={e => setForm(prev => ({ ...prev, observacao: e.target.value }))} className="text-sm bg-background border-2 border-border resize-none" rows={2} />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => { setShowForm(false); setEditVeiculo(null); }}>Cancelar</Button>
-            <Button size="sm" onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" className="border-2 w-full sm:w-auto" onClick={() => { setShowForm(false); setEditVeiculo(null); }}>Cancelar</Button>
+            <Button className="w-full sm:w-auto" onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>
               {createMutation.isPending || updateMutation.isPending ? 'Salvando...' : 'Salvar'}
             </Button>
           </DialogFooter>
@@ -375,14 +457,14 @@ export default function Estoque() {
 
       {/* Delete Confirm */}
       <Dialog open={!!deleteId} onOpenChange={open => { if (!open) setDeleteId(null); }}>
-        <DialogContent className="max-w-sm bg-card border-border/50">
+        <DialogContent className="max-w-sm bg-card border-2 border-border mx-3 sm:mx-auto">
           <DialogHeader>
             <DialogTitle className="text-foreground">Confirmar exclusão</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">Tem certeza que deseja remover este veículo? Esta ação não pode ser desfeita.</p>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setDeleteId(null)}>Cancelar</Button>
-            <Button variant="destructive" size="sm" onClick={() => deleteId && deleteMutation.mutate({ id: deleteId })} disabled={deleteMutation.isPending}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" className="border-2 w-full sm:w-auto" onClick={() => setDeleteId(null)}>Cancelar</Button>
+            <Button variant="destructive" className="w-full sm:w-auto" onClick={() => deleteId && deleteMutation.mutate({ id: deleteId })} disabled={deleteMutation.isPending}>
               {deleteMutation.isPending ? 'Removendo...' : 'Remover'}
             </Button>
           </DialogFooter>

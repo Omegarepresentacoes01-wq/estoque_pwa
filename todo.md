@@ -40,3 +40,15 @@
 ## Testes
 - [x] Testes unitários para routers principais (10 testes passando)
 - [x] Verificação de status do servidor
+
+## Melhorias UI/UX (v2)
+- [x] Implementar modo claro com paleta refinada
+- [x] Bordas mais visíveis/negrito no modo claro
+- [x] Toggle de tema claro/escuro no header/sidebar
+- [x] Corrigir sidebar mobile: overlay, swipe, botão fechar
+- [x] Tabelas responsivas no mobile (scroll horizontal + colunas prioritárias)
+- [x] Filtros em drawer/bottom-sheet no mobile
+- [x] Formulários de CRUD adaptados para mobile
+- [x] Bottom navigation bar no mobile
+- [x] Dashboard cards responsivos em mobile
+- [x] Melhorar tipografia e espaçamento geral

@@ -174,7 +174,7 @@ export default function Importacao() {
       </div>
 
       {/* Instructions */}
-      <div className="rounded-xl border border-border/50 bg-card p-5">
+      <div className="rounded-xl border-2 border-border bg-card p-5">
         <h3 className="text-sm font-semibold text-foreground mb-3">Formato esperado</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-muted-foreground">
           <div>
@@ -195,7 +195,7 @@ export default function Importacao() {
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDrop}
           onClick={() => fileRef.current?.click()}
-          className={`rounded-xl border-2 border-dashed p-12 flex flex-col items-center gap-4 cursor-pointer transition-all ${isDragging ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-border bg-card'}`}
+          className={`rounded-xl border-2 border-dashed p-8 sm:p-12 flex flex-col items-center gap-4 cursor-pointer transition-all ${isDragging ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 bg-card'}`}
         >
           <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors ${isDragging ? 'bg-primary/20' : 'bg-muted/50'}`}>
             <Upload className={`w-7 h-7 ${isDragging ? 'text-primary' : 'text-muted-foreground'}`} />
@@ -210,7 +210,7 @@ export default function Importacao() {
 
       {/* File Selected */}
       {file && !result && (
-        <div className="rounded-xl border border-border/50 bg-card p-5 space-y-4">
+        <div className="rounded-xl border-2 border-border bg-card p-4 sm:p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center">
@@ -237,12 +237,12 @@ export default function Importacao() {
             <>
               {/* Warnings */}
               {parsed.warnings.length > 0 && (
-                <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3">
+                <div className="rounded-lg bg-amber-50 dark:bg-amber-500/10 border-2 border-amber-300 dark:border-amber-500/30 p-3">
                   <div className="flex items-center gap-2 mb-2">
                     <AlertTriangle className="w-4 h-4 text-amber-400" />
-                    <span className="text-xs font-semibold text-amber-400">Avisos</span>
+                    <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Avisos</span>
                   </div>
-                  {parsed.warnings.map((w, i) => <p key={i} className="text-xs text-amber-300/80">{w}</p>)}
+                  {parsed.warnings.map((w, i) => <p key={i} className="text-xs text-amber-600 dark:text-amber-300/80">{w}</p>)}
                 </div>
               )}
 
@@ -262,10 +262,10 @@ export default function Importacao() {
               {parsed.veiculos.length > 0 && (
                 <div>
                   <p className="text-xs font-medium text-muted-foreground mb-2">Prévia (primeiros 5 veículos)</p>
-                  <div className="rounded-lg overflow-hidden border border-border/30">
+                    <div className="rounded-lg overflow-hidden border-2 border-border">
                     <table className="w-full text-xs">
                       <thead>
-                        <tr style={{ background: 'oklch(0.14 0.02 250)' }}>
+                        <tr className="table-header-light border-b-2 border-border">
                           <th className="text-left py-2 px-3 text-muted-foreground font-medium">#</th>
                           <th className="text-left py-2 px-3 text-muted-foreground font-medium">NF</th>
                           <th className="text-left py-2 px-3 text-muted-foreground font-medium">Modelo</th>
@@ -290,7 +290,7 @@ export default function Importacao() {
               )}
 
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={reset} className="flex-1">Cancelar</Button>
+                <Button variant="outline" size="sm" onClick={reset} className="flex-1 border-2">Cancelar</Button>
                 <Button size="sm" onClick={handleImport} disabled={importMutation.isPending} className="flex-1 gap-1.5">
                   {importMutation.isPending ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Importando...</> : <><Upload className="w-3.5 h-3.5" /> Importar Dados</>}
                 </Button>
@@ -302,18 +302,18 @@ export default function Importacao() {
 
       {/* Result */}
       {result && (
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-5 space-y-4">
+        <div className="rounded-xl border-2 border-emerald-300 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/5 p-5 space-y-4">
           <div className="flex items-center gap-2">
             <CheckCircle className="w-5 h-5 text-emerald-400" />
-            <h3 className="text-sm font-semibold text-emerald-400">Importação Concluída!</h3>
+            <h3 className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">Importação Concluída!</h3>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-lg bg-emerald-500/10 p-3 text-center">
-              <div className="text-2xl font-bold text-emerald-400">{result.veiculos.imported}</div>
+            <div className="rounded-lg bg-emerald-100 dark:bg-emerald-500/10 border-2 border-emerald-200 dark:border-emerald-500/20 p-3 text-center">
+              <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{result.veiculos.imported}</div>
               <div className="text-xs text-muted-foreground mt-0.5">Veículos importados</div>
             </div>
-            <div className="rounded-lg bg-emerald-500/10 p-3 text-center">
-              <div className="text-2xl font-bold text-emerald-400">{result.programacao.imported}</div>
+            <div className="rounded-lg bg-emerald-100 dark:bg-emerald-500/10 border-2 border-emerald-200 dark:border-emerald-500/20 p-3 text-center">
+              <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{result.programacao.imported}</div>
               <div className="text-xs text-muted-foreground mt-0.5">Programações importadas</div>
             </div>
           </div>
