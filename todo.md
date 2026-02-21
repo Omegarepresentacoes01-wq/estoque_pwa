@@ -56,3 +56,12 @@
 ## Bugs (v3)
 - [x] Corrigir problema de login (autenticação não funciona)
 - [x] Investigar e corrigir acesso após publicação (login OAuth não funciona)
+
+## Página de Detalhes do Veículo (v4)
+- [x] Tabela veiculo_historico no banco de dados
+- [x] Router tRPC: veiculos.getById, veiculos.historico, veiculos.addHistorico
+- [x] Página VeiculoDetalhe.tsx com todas as informações
+- [x] Timeline de histórico de alterações de status
+- [x] Ações rápidas: Reservar, Liberar, Marcar como Vendido (via modal de edição)
+- [x] Link de detalhes na tabela de estoque e nos cards mobile
+- [x] Registro automático de histórico ao editar status/cliente

@@ -76,3 +76,26 @@ export const programacao = mysqlTable("programacao", {
 
 export type Programacao = typeof programacao.$inferSelect;
 export type InsertProgramacao = typeof programacao.$inferInsert;
+
+// Tabela de histórico de alterações de veículos
+export const veiculoHistorico = mysqlTable("veiculo_historico", {
+  id: int("id").autoincrement().primaryKey(),
+  veiculoId: int("veiculoId").notNull(),
+  // Tipo de evento: status_change, cliente_change, localizacao_change, observacao_change, criado, editado
+  tipo: varchar("tipo", { length: 64 }).notNull(),
+  // Campo que foi alterado
+  campo: varchar("campo", { length: 64 }),
+  // Valor anterior
+  valorAnterior: text("valorAnterior"),
+  // Novo valor
+  valorNovo: text("valorNovo"),
+  // Usuário que fez a alteração
+  usuarioNome: varchar("usuarioNome", { length: 256 }),
+  usuarioId: int("usuarioId"),
+  // Observação livre
+  observacao: text("observacao"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type VeiculoHistorico = typeof veiculoHistorico.$inferSelect;
+export type InsertVeiculoHistorico = typeof veiculoHistorico.$inferInsert;

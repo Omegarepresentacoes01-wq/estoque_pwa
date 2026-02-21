@@ -10,6 +10,7 @@ import {
   getDashboardStats, getVeiculosFiltros, getVeiculosCriticos, marcarNotificado,
   getProgramacao, createProgramacao, updateProgramacao, deleteProgramacao, getProgramacaoFiltros,
   bulkImportVeiculos, bulkImportProgramacao,
+  addHistorico, getHistoricoByVeiculoId, updateVeiculoComHistorico,
 } from "./db";
 
 const VeiculoFiltersSchema = z.object({
@@ -89,13 +90,38 @@ export const appRouter = router({
       return v;
     }),
 
-    create: publicProcedure.input(VeiculoInputSchema).mutation(async ({ input }) => {
-      await createVeiculo(input as any);
+    update: publicProcedure.input(z.object({ id: z.number(), data: VeiculoInputSchema.partial() })).mutation(async ({ input, ctx }) => {
+      // Buscar veículo atual para comparação no histórico
+      const veiculoAtual = await getVeiculoById(input.id);
+      if (!veiculoAtual) throw new TRPCError({ code: 'NOT_FOUND', message: 'Veículo não encontrado' });
+      const usuarioNome = ctx.user?.name ?? 'Sistema';
+      const usuarioId = ctx.user?.id ?? 0;
+      await updateVeiculoComHistorico(input.id, input.data as any, usuarioNome, usuarioId, veiculoAtual);
       return { success: true };
     }),
 
-    update: publicProcedure.input(z.object({ id: z.number(), data: VeiculoInputSchema.partial() })).mutation(async ({ input }) => {
-      await updateVeiculo(input.id, input.data as any);
+    historico: publicProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
+      return getHistoricoByVeiculoId(input.id);
+    }),
+
+    addHistorico: publicProcedure.input(z.object({
+      veiculoId: z.number(),
+      tipo: z.string(),
+      campo: z.string().optional(),
+      valorAnterior: z.string().optional().nullable(),
+      valorNovo: z.string().optional().nullable(),
+      observacao: z.string().optional().nullable(),
+    })).mutation(async ({ input, ctx }) => {
+      await addHistorico({
+        ...input,
+        usuarioNome: ctx.user?.name ?? 'Sistema',
+        usuarioId: ctx.user?.id ?? 0,
+      });
+      return { success: true };
+    }),
+
+    create: publicProcedure.input(VeiculoInputSchema).mutation(async ({ input, ctx }) => {
+      await createVeiculo(input as any);
       return { success: true };
     }),
 

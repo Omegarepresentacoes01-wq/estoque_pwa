@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import Estoque from "./pages/Estoque";
 import Programacao from "./pages/Programacao";
 import Importacao from "./pages/Importacao";
+import VeiculoDetalhe from "./pages/VeiculoDetalhe";
 
 function Router() {
   return (
@@ -18,6 +19,7 @@ function Router() {
         <Route path="/estoque" component={Estoque} />
         <Route path="/programacao" component={Programacao} />
         <Route path="/importacao" component={Importacao} />
+        <Route path="/veiculo/:id" component={VeiculoDetalhe} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>

@@ -1,6 +1,6 @@
-import { and, asc, desc, eq, gte, ilike, like, lte, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, like, lte, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, InsertVeiculo, InsertProgramacao, users, veiculos, programacao } from "../drizzle/schema";
+import { InsertUser, InsertVeiculo, InsertProgramacao, InsertVeiculoHistorico, users, veiculos, programacao, veiculoHistorico } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -314,4 +314,62 @@ export async function bulkImportProgramacao(rows: InsertProgramacao[]) {
     imported++;
   }
   return { imported };
+}
+
+// ============ HISTÓRICO DE VEÍCULOS ============
+
+export async function addHistorico(entry: InsertVeiculoHistorico) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(veiculoHistorico).values(entry);
+}
+
+export async function getHistoricoByVeiculoId(veiculoId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(veiculoHistorico)
+    .where(eq(veiculoHistorico.veiculoId, veiculoId))
+    .orderBy(desc(veiculoHistorico.createdAt));
+}
+
+export async function updateVeiculoComHistorico(
+  id: number,
+  data: Partial<InsertVeiculo>,
+  usuarioNome: string,
+  usuarioId: number,
+  veiculoAtual: Partial<InsertVeiculo>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Campos que queremos rastrear no histórico
+  const camposRastreados: Array<keyof InsertVeiculo> = [
+    'status', 'cliente', 'estoquesFisico', 'observacao',
+    'implemento', 'pneu', 'defletor', 'diasEstoque', 'diasPatio',
+    'dataChegadaCovezi', 'dataAtual', 'cor', 'anoMod',
+  ];
+
+  // Registrar uma entrada de histórico por campo alterado
+  for (const campo of camposRastreados) {
+    const valorAnterior = veiculoAtual[campo];
+    const valorNovo = data[campo];
+    if (valorNovo !== undefined && String(valorNovo) !== String(valorAnterior ?? '')) {
+      const tipo = campo === 'status' ? 'status_change'
+        : campo === 'cliente' ? 'cliente_change'
+        : campo === 'estoquesFisico' ? 'localizacao_change'
+        : 'campo_change';
+      await db.insert(veiculoHistorico).values({
+        veiculoId: id,
+        tipo,
+        campo,
+        valorAnterior: valorAnterior != null ? String(valorAnterior) : null,
+        valorNovo: valorNovo != null ? String(valorNovo) : null,
+        usuarioNome,
+        usuarioId,
+      });
+    }
+  }
+
+  // Atualizar o veículo
+  await db.update(veiculos).set(data).where(eq(veiculos.id, id));
 }

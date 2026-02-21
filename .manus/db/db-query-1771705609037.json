@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `veiculo_historico` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`veiculoId` int NOT NULL,\n\t`tipo` varchar(64) NOT NULL,\n\t`campo` varchar(64),\n\t`valorAnterior` text,\n\t`valorNovo` text,\n\t`usuarioNome` varchar(256),\n\t`usuarioId` int,\n\t`observacao` text,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `veiculo_historico_id` PRIMARY KEY(`id`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 21B25mJthHkmcQs.8ff828763035 --database HQTr9ZFa7GMvh5UDLwJpdT --execute CREATE TABLE `veiculo_historico` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`veiculoId` int NOT NULL,\n\t`tipo` varchar(64) NOT NULL,\n\t`campo` varchar(64),\n\t`valorAnterior` text,\n\t`valorNovo` text,\n\t`usuarioNome` varchar(256),\n\t`usuarioId` int,\n\t`observacao` text,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `veiculo_historico_id` PRIMARY KEY(`id`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 299
+}
