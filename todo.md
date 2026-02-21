@@ -65,3 +65,16 @@
 - [x] Ações rápidas: Reservar, Liberar, Marcar como Vendido (via modal de edição)
 - [x] Link de detalhes na tabela de estoque e nos cards mobile
 - [x] Registro automático de histórico ao editar status/cliente
+
+## Controle de Acesso por Perfil (v5)
+- [ ] Tabela `invites` no banco (token, email, nome, role, usado, expirado)
+- [ ] Tabela `colaboradores` com email, nome, role (admin/colaborador)
+- [ ] Router tRPC: invites.create, invites.accept, invites.list, invites.revoke
+- [ ] Router tRPC: colaboradores.list, colaboradores.remove, colaboradores.changeRole
+- [ ] Login de colaborador via link de convite (sem senha, somente email+nome)
+- [ ] Middleware de autorização: Admin vs Colaborador
+- [ ] Bloquear mutations no frontend para Colaborador (botões ocultos/desabilitados)
+- [ ] Página de gerenciamento de colaboradores (Admin only)
+- [ ] Exibir nome do usuário logado no Dashboard
+- [ ] Página de aceite de convite (/convite/:token)
+- [ ] Notificação ao admin quando colaborador aceitar convite

@@ -97,3 +97,26 @@ describe("programacao router", () => {
     expect(filtros.meses.length).toBeGreaterThan(0);
   });
 });
+
+describe("colaboradores router", () => {
+  it("list is callable by admin", async () => {
+    const caller = appRouter.createCaller(createCtx());
+    // Should not throw (may return empty array if no colaboradores in test DB)
+    const result = await caller.colaboradores.list();
+    expect(Array.isArray(result)).toBe(true);
+  });
+});
+
+describe("convites router", () => {
+  it("list is callable by admin", async () => {
+    const caller = appRouter.createCaller(createCtx());
+    const result = await caller.convites.list();
+    expect(Array.isArray(result)).toBe(true);
+  });
+
+  it("getByToken throws NOT_FOUND for invalid token", async () => {
+    const caller = appRouter.createCaller(createCtx());
+    await expect(caller.convites.getByToken({ token: "invalid-token-xyz" }))
+      .rejects.toThrow();
+  });
+});

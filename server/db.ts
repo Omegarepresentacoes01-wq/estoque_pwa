@@ -1,6 +1,10 @@
 import { and, asc, desc, eq, gte, like, lte, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, InsertVeiculo, InsertProgramacao, InsertVeiculoHistorico, users, veiculos, programacao, veiculoHistorico } from "../drizzle/schema";
+import {
+  InsertUser, InsertVeiculo, InsertProgramacao, InsertVeiculoHistorico,
+  InsertColaborador, InsertInvite,
+  users, veiculos, programacao, veiculoHistorico, colaboradores, invites
+} from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -372,4 +376,98 @@ export async function updateVeiculoComHistorico(
 
   // Atualizar o veículo
   await db.update(veiculos).set(data).where(eq(veiculos.id, id));
+}
+
+// ============ COLABORADORES ============
+
+export async function getColaboradores() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(colaboradores).orderBy(asc(colaboradores.nome));
+}
+
+export async function getColaboradorByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(colaboradores).where(eq(colaboradores.email, email.toLowerCase())).limit(1);
+  return result[0];
+}
+
+export async function getColaboradorByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(colaboradores).where(eq(colaboradores.userId, userId)).limit(1);
+  return result[0];
+}
+
+export async function upsertColaborador(data: InsertColaborador) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(colaboradores).values(data).onDuplicateKeyUpdate({
+    set: { nome: data.nome, role: data.role, status: data.status, userId: data.userId, lastAccessAt: new Date() },
+  });
+}
+
+export async function updateColaboradorStatus(id: number, status: 'ativo' | 'inativo') {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(colaboradores).set({ status }).where(eq(colaboradores.id, id));
+}
+
+export async function deleteColaborador(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(colaboradores).where(eq(colaboradores.id, id));
+}
+
+export async function updateColaboradorLastAccess(userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(colaboradores).set({ lastAccessAt: new Date() }).where(eq(colaboradores.userId, userId));
+}
+
+// ============ CONVITES ============
+
+export async function createInvite(data: InsertInvite) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(invites).values(data);
+}
+
+export async function getInviteByToken(token: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(invites).where(eq(invites.token, token)).limit(1);
+  return result[0];
+}
+
+export async function getInvites() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(invites).orderBy(desc(invites.createdAt));
+}
+
+export async function acceptInvite(token: string, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(invites).set({ status: 'aceito', acceptedAt: new Date() }).where(eq(invites.token, token));
+  // Atualizar userId no colaborador
+  const invite = await getInviteByToken(token);
+  if (invite) {
+    await db.update(colaboradores).set({ userId, status: 'ativo' }).where(eq(colaboradores.email, invite.email));
+  }
+}
+
+export async function revokeInvite(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(invites).set({ status: 'revogado' }).where(eq(invites.id, id));
+}
+
+export async function expireOldInvites() {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(invites)
+    .set({ status: 'expirado' })
+    .where(and(eq(invites.status, 'pendente'), lte(invites.expiresAt, new Date())));
 }

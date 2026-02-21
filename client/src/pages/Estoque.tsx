@@ -1,4 +1,3 @@
-import { trpc } from "@/lib/trpc";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { Search, Plus, Edit2, Trash2, Download, X, ChevronLeft, ChevronRight, ArrowUpDown, SlidersHorizontal, Eye } from "lucide-react";
@@ -11,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/useMobile.tsx";
+import { usePermissions } from "@/hooks/usePermissions";
+import { trpc } from "@/lib/trpc";
 
 type Veiculo = {
   id: number; numero: number | null; nf: string | null; dataEmissao: string | null;
@@ -59,6 +60,7 @@ const TABLE_COLS = [
 
 export default function Estoque() {
   const isMobile = useIsMobile();
+  const { canEdit } = usePermissions();
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({ status: 'TODOS', estoquesFisico: 'TODOS', cor: 'TODOS', pneu: 'TODOS', cod: 'TODOS', diasEstoqueMin: '', diasEstoqueMax: '' });
@@ -195,11 +197,13 @@ export default function Estoque() {
             <span className="hidden sm:inline">Exportar CSV</span>
             <span className="sm:hidden">CSV</span>
           </Button>
-          <Button size="sm" onClick={() => { setForm(EMPTY_FORM); setEditVeiculo(null); setShowForm(true); }} className="gap-1.5 text-xs">
-            <Plus className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Novo Veículo</span>
-            <span className="sm:hidden">Novo</span>
-          </Button>
+          {canEdit && (
+            <Button size="sm" onClick={() => { setForm(EMPTY_FORM); setEditVeiculo(null); setShowForm(true); }} className="gap-1.5 text-xs">
+              <Plus className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Novo Veículo</span>
+              <span className="sm:hidden">Novo</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -291,12 +295,16 @@ export default function Estoque() {
                   <button onClick={() => setLocation(`/veiculo/${v.id}`)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border-2 border-primary/30 bg-primary/5 hover:bg-primary/15 text-primary transition-colors">
                     <Eye className="w-3.5 h-3.5" /> Detalhes
                   </button>
-                  <button onClick={() => openEdit(v)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border-2 border-border hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-colors">
-                    <Edit2 className="w-3.5 h-3.5" /> Editar
-                  </button>
-                  <button onClick={() => setDeleteId(v.id)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border-2 border-border hover:bg-destructive/10 hover:border-destructive/40 hover:text-destructive transition-colors">
-                    <Trash2 className="w-3.5 h-3.5" /> Excluir
-                  </button>
+                  {canEdit && (
+                    <button onClick={() => openEdit(v)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border-2 border-border hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-colors">
+                      <Edit2 className="w-3.5 h-3.5" /> Editar
+                    </button>
+                  )}
+                  {canEdit && (
+                    <button onClick={() => setDeleteId(v.id)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border-2 border-border hover:bg-destructive/10 hover:border-destructive/40 hover:text-destructive transition-colors">
+                      <Trash2 className="w-3.5 h-3.5" /> Excluir
+                    </button>
+                  )}
                 </div>
               </div>
             ))
@@ -356,12 +364,16 @@ export default function Estoque() {
                           <button onClick={() => setLocation(`/veiculo/${v.id}`)} className="p-1.5 rounded-md border border-transparent hover:border-primary/40 hover:bg-primary/10 text-primary transition-colors" title="Ver detalhes">
                             <Eye className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => openEdit(v)} className="p-1.5 rounded-md border border-transparent hover:border-primary/40 hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors" title="Editar">
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button onClick={() => setDeleteId(v.id)} className="p-1.5 rounded-md border border-transparent hover:border-destructive/40 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Excluir">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {canEdit && (
+                            <button onClick={() => openEdit(v)} className="p-1.5 rounded-md border border-transparent hover:border-primary/40 hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors" title="Editar">
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {canEdit && (
+                            <button onClick={() => setDeleteId(v.id)} className="p-1.5 rounded-md border border-transparent hover:border-destructive/40 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Excluir">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

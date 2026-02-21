@@ -10,8 +10,9 @@ import {
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile.tsx";
 import { useTheme } from "@/contexts/ThemeContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
-  BarChart3, Calendar, LogOut, Menu, Moon, Sun, Truck, Upload, X,
+  BarChart3, Calendar, LogOut, Menu, Moon, Sun, Truck, Upload, Users, X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -19,10 +20,11 @@ import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
 
 const menuItems = [
-  { icon: BarChart3, label: "Dashboard",   path: "/" },
-  { icon: Truck,    label: "Estoque",      path: "/estoque" },
-  { icon: Calendar, label: "Programação",  path: "/programacao" },
-  { icon: Upload,   label: "Importação",   path: "/importacao" },
+  { icon: BarChart3, label: "Dashboard",   path: "/",              adminOnly: false },
+  { icon: Truck,    label: "Estoque",      path: "/estoque",       adminOnly: false },
+  { icon: Calendar, label: "Programação",  path: "/programacao",   adminOnly: false },
+  { icon: Upload,   label: "Importação",   path: "/importacao",    adminOnly: true },
+  { icon: Users,    label: "Colaboradores", path: "/colaboradores", adminOnly: true },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -61,6 +63,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
+  const { canEdit } = usePermissions();
   const [location, setLocation] = useLocation();
   const isMobile = useIsMobile();
   const { theme, toggleTheme } = useTheme();
@@ -95,7 +98,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     return () => { document.body.style.overflow = ""; };
   }, [isMobile, sidebarOpen]);
 
-  const activeItem = menuItems.find(
+  const visibleMenuItems = menuItems.filter(item => !item.adminOnly || canEdit);
+  const activeItem = visibleMenuItems.find(
     item => item.path === location || (item.path !== "/" && location.startsWith(item.path))
   );
 
@@ -189,7 +193,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
           {/* Nav Items */}
           <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-            {menuItems.map(item => {
+            {visibleMenuItems.map(item => {
               const isActive = item.path === location || (item.path !== "/" && location.startsWith(item.path));
               return (
                 <button
@@ -237,7 +241,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
         {/* Bottom Navigation */}
         <nav className="mobile-bottom-nav">
-          {menuItems.map(item => {
+          {visibleMenuItems.map(item => {
             const isActive = item.path === location || (item.path !== "/" && location.startsWith(item.path));
             return (
               <button
@@ -273,7 +277,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
         {/* Nav */}
         <nav className="flex-1 p-3 space-y-0.5">
-          {menuItems.map(item => {
+          {visibleMenuItems.map(item => {
             const isActive = item.path === location || (item.path !== "/" && location.startsWith(item.path));
             return (
               <button

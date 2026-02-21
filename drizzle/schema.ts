@@ -99,3 +99,51 @@ export const veiculoHistorico = mysqlTable("veiculo_historico", {
 
 export type VeiculoHistorico = typeof veiculoHistorico.$inferSelect;
 export type InsertVeiculoHistorico = typeof veiculoHistorico.$inferInsert;
+
+// Tabela de colaboradores convidados (acesso somente leitura)
+export const colaboradores = mysqlTable("colaboradores", {
+  id: int("id").autoincrement().primaryKey(),
+  // Nome do colaborador
+  nome: varchar("nome", { length: 256 }).notNull(),
+  // Email do colaborador
+  email: varchar("email", { length: 320 }).notNull().unique(),
+  // Papel: colaborador (somente leitura) ou admin
+  role: mysqlEnum("role", ["colaborador", "admin"]).default("colaborador").notNull(),
+  // Status: ativo ou inativo
+  status: mysqlEnum("status", ["ativo", "inativo"]).default("ativo").notNull(),
+  // ID do usuário Manus (preenchido após aceitar convite)
+  userId: int("userId"),
+  // Quem convidou
+  convidadoPor: varchar("convidadoPor", { length: 256 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  lastAccessAt: timestamp("lastAccessAt"),
+});
+
+export type Colaborador = typeof colaboradores.$inferSelect;
+export type InsertColaborador = typeof colaboradores.$inferInsert;
+
+// Tabela de tokens de convite
+export const invites = mysqlTable("invites", {
+  id: int("id").autoincrement().primaryKey(),
+  // Token único do convite
+  token: varchar("token", { length: 128 }).notNull().unique(),
+  // Email do convidado
+  email: varchar("email", { length: 320 }).notNull(),
+  // Nome do convidado
+  nome: varchar("nome", { length: 256 }).notNull(),
+  // Papel que será atribuído
+  role: mysqlEnum("role", ["colaborador", "admin"]).default("colaborador").notNull(),
+  // Status do convite
+  status: mysqlEnum("status", ["pendente", "aceito", "expirado", "revogado"]).default("pendente").notNull(),
+  // Quem gerou o convite
+  criadoPor: varchar("criadoPor", { length: 256 }),
+  // Data de expiração (7 dias por padrão)
+  expiresAt: timestamp("expiresAt").notNull(),
+  // Data em que foi aceito
+  acceptedAt: timestamp("acceptedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Invite = typeof invites.$inferSelect;
+export type InsertInvite = typeof invites.$inferInsert;

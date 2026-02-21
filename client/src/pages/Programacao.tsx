@@ -9,6 +9,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useIsMobile } from "@/hooks/useMobile.tsx";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const MES_ORDER: Record<string, number> = {
   JANEIRO: 1, FEVEREIRO: 2, MARÇO: 3, ABRIL: 4, MAIO: 5, JUNHO: 6,
@@ -33,6 +34,7 @@ const EMPTY_FORM = { pedido: '', idModelo: '', mesPrevisto: '', modelo: '', cor:
 
 export default function Programacao() {
   const isMobile = useIsMobile();
+  const { canEdit } = usePermissions();
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({ mesPrevisto: 'TODOS', local: 'TODOS' });
   const [showFilters, setShowFilters] = useState(false);
@@ -141,11 +143,13 @@ export default function Programacao() {
             <Download className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Exportar CSV</span>
           </Button>
-          <Button size="sm" onClick={() => { setForm(EMPTY_FORM); setEditItem(null); setShowForm(true); }} className="gap-1.5 text-xs">
-            <Plus className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Novo Pedido</span>
-            <span className="sm:hidden">Novo</span>
-          </Button>
+          {canEdit && (
+            <Button size="sm" onClick={() => { setForm(EMPTY_FORM); setEditItem(null); setShowForm(true); }} className="gap-1.5 text-xs">
+              <Plus className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Novo Pedido</span>
+              <span className="sm:hidden">Novo</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -266,14 +270,16 @@ export default function Programacao() {
                   <div><span className="text-muted-foreground">Cor:</span> <span className="text-foreground">{item.cor || '-'}</span></div>
                   <div className="col-span-2"><span className="text-muted-foreground">Local:</span> <span className="text-foreground">{item.local || '-'}</span></div>
                 </div>
-                <div className="flex items-center justify-end gap-2 pt-1 border-t border-border">
-                  <button onClick={() => openEdit(item)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border-2 border-border hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-colors">
-                    <Edit2 className="w-3.5 h-3.5" /> Editar
-                  </button>
-                  <button onClick={() => setDeleteId(item.id)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border-2 border-border hover:bg-destructive/10 hover:border-destructive/40 hover:text-destructive transition-colors">
-                    <Trash2 className="w-3.5 h-3.5" /> Excluir
-                  </button>
-                </div>
+                {canEdit && (
+                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-border">
+                    <button onClick={() => openEdit(item)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border-2 border-border hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-colors">
+                      <Edit2 className="w-3.5 h-3.5" /> Editar
+                    </button>
+                    <button onClick={() => setDeleteId(item.id)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border-2 border-border hover:bg-destructive/10 hover:border-destructive/40 hover:text-destructive transition-colors">
+                      <Trash2 className="w-3.5 h-3.5" /> Excluir
+                    </button>
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -312,14 +318,16 @@ export default function Programacao() {
                       <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">{item.cor}</td>
                       <td className="py-2.5 px-3 text-muted-foreground">{item.local}</td>
                       <td className="py-2.5 px-3 text-right">
-                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => openEdit(item)} className="p-1.5 rounded-md border border-transparent hover:border-primary/40 hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors">
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button onClick={() => setDeleteId(item.id)} className="p-1.5 rounded-md border border-transparent hover:border-destructive/40 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                        {canEdit && (
+                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => openEdit(item)} className="p-1.5 rounded-md border border-transparent hover:border-primary/40 hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors">
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={() => setDeleteId(item.id)} className="p-1.5 rounded-md border border-transparent hover:border-destructive/40 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))
