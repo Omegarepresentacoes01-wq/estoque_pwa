@@ -126,7 +126,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                 <Truck className="w-3.5 h-3.5 text-primary" />
               </div>
               <span className="font-semibold text-sm text-foreground">
-                {activeItem?.label ?? "Estoque Iveco"}
+                {activeItem?.label ?? "Covezi Iveco"}
               </span>
             </div>
           </div>
@@ -181,7 +181,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
               <div className="w-7 h-7 rounded-lg bg-primary/15 border border-primary/30 flex items-center justify-center">
                 <Truck className="w-4 h-4 text-primary" />
               </div>
-              <span className="font-bold text-sm text-sidebar-foreground">Estoque Iveco</span>
+              <span className="font-bold text-sm text-sidebar-foreground">Estoque Covezi Iveco</span>
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
@@ -270,7 +270,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             <Truck className="w-4.5 h-4.5 text-primary" />
           </div>
           <div>
-            <p className="font-bold text-sm text-sidebar-foreground leading-none">Estoque Iveco</p>
+            <p className="font-bold text-sm text-sidebar-foreground leading-none">Estoque Covezi Iveco</p>
             <p className="text-xs text-muted-foreground mt-0.5">Gestão de Veículos</p>
           </div>
         </div>
