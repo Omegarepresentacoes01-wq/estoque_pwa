@@ -52,3 +52,7 @@
 - [x] Bottom navigation bar no mobile
 - [x] Dashboard cards responsivos em mobile
 - [x] Melhorar tipografia e espaçamento geral
+
+## Bugs (v3)
+- [x] Corrigir problema de login (autenticação não funciona)
+- [x] Investigar e corrigir acesso após publicação (login OAuth não funciona)

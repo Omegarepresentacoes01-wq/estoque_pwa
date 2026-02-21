@@ -9,6 +9,7 @@ function isIpAddress(host: string) {
 }
 
 function isSecureRequest(req: Request) {
+  // With trust proxy enabled, req.protocol already reflects x-forwarded-proto
   if (req.protocol === "https") return true;
 
   const forwardedProto = req.headers["x-forwarded-proto"];
@@ -24,25 +25,18 @@ function isSecureRequest(req: Request) {
 export function getSessionCookieOptions(
   req: Request
 ): Pick<CookieOptions, "domain" | "httpOnly" | "path" | "sameSite" | "secure"> {
-  // const hostname = req.hostname;
-  // const shouldSetDomain =
-  //   hostname &&
-  //   !LOCAL_HOSTS.has(hostname) &&
-  //   !isIpAddress(hostname) &&
-  //   hostname !== "127.0.0.1" &&
-  //   hostname !== "::1";
+  const hostname = req.hostname || "";
+  const isLocal = LOCAL_HOSTS.has(hostname) || isIpAddress(hostname);
 
-  // const domain =
-  //   shouldSetDomain && !hostname.startsWith(".")
-  //     ? `.${hostname}`
-  //     : shouldSetDomain
-  //       ? hostname
-  //       : undefined;
+  // In production (behind Manus gateway/proxy), always force secure + sameSite=none
+  // so the cookie is accepted cross-origin after the OAuth redirect.
+  // In local dev, derive from actual protocol to avoid requiring HTTPS.
+  const secure = isLocal ? isSecureRequest(req) : true;
 
   return {
     httpOnly: true,
     path: "/",
-    sameSite: "none",
-    secure: isSecureRequest(req),
+    sameSite: secure ? "none" : "lax",
+    secure,
   };
 }
