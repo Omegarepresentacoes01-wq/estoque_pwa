@@ -12,7 +12,7 @@ import { useIsMobile } from "@/hooks/useMobile.tsx";
 import { useTheme } from "@/contexts/ThemeContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
-  BarChart3, Calendar, LogOut, Menu, Moon, Sun, Truck, Upload, Users, X,
+  BarChart3, Calendar, Car, LogOut, Menu, Moon, Sun, Upload, Users, X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -21,7 +21,7 @@ import { Button } from "./ui/button";
 
 const menuItems = [
   { icon: BarChart3, label: "Dashboard",   path: "/",              adminOnly: false },
-  { icon: Truck,    label: "Estoque",      path: "/estoque",       adminOnly: false },
+  { icon: Car,       label: "Estoque",      path: "/estoque",       adminOnly: false },
   { icon: Calendar, label: "Programação",  path: "/programacao",   adminOnly: false },
   { icon: Upload,   label: "Importação",   path: "/importacao",    adminOnly: true },
   { icon: Users,    label: "Colaboradores", path: "/colaboradores", adminOnly: true },
@@ -36,8 +36,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="flex flex-col items-center gap-8 p-8 max-w-sm w-full">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-2 border-2 border-primary/20">
-              <Truck className="w-8 h-8 text-primary" />
+            <div className="flex items-center justify-center mb-2">
+              <img src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663029800535/kQdbGGvzssQCloXE.png" alt="Covezi Iveco" className="h-14 w-auto object-contain" />
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-center text-foreground">
               Gestão de Estoque
@@ -122,9 +122,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
               <Menu className="w-5 h-5 text-foreground" />
             </button>
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-md bg-primary/15 border border-primary/30 flex items-center justify-center">
-                <Truck className="w-3.5 h-3.5 text-primary" />
-              </div>
+              <img src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663029800535/kQdbGGvzssQCloXE.png" alt="Covezi Iveco" className="h-7 w-auto object-contain" />
               <span className="font-semibold text-sm text-foreground">
                 {activeItem?.label ?? "Covezi Iveco"}
               </span>
@@ -178,10 +176,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           {/* Sidebar Header */}
           <div className="h-14 flex items-center justify-between px-4 border-b-2 border-sidebar-border">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-primary/15 border border-primary/30 flex items-center justify-center">
-                <Truck className="w-4 h-4 text-primary" />
-              </div>
-              <span className="font-bold text-sm text-sidebar-foreground">Estoque Covezi Iveco</span>
+              <img src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663029800535/kQdbGGvzssQCloXE.png" alt="Covezi Iveco" className="h-8 w-auto object-contain" />
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
@@ -265,14 +260,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       {/* Desktop Sidebar */}
       <aside className="w-60 shrink-0 flex flex-col bg-sidebar border-r-2 border-sidebar-border sticky top-0 h-screen overflow-y-auto">
         {/* Logo */}
-        <div className="h-16 flex items-center gap-3 px-4 border-b-2 border-sidebar-border">
-          <div className="w-8 h-8 rounded-xl bg-primary/15 border-2 border-primary/30 flex items-center justify-center">
-            <Truck className="w-4.5 h-4.5 text-primary" />
-          </div>
-          <div>
-            <p className="font-bold text-sm text-sidebar-foreground leading-none">Estoque Covezi Iveco</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Gestão de Veículos</p>
-          </div>
+        <div className="h-16 flex items-center justify-center px-4 border-b-2 border-sidebar-border">
+          <img src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663029800535/kQdbGGvzssQCloXE.png" alt="Covezi Iveco" className="h-10 w-auto object-contain" />
         </div>
 
         {/* Nav */}
