@@ -174,17 +174,45 @@ export default function Dashboard() {
           {isLoading ? (
             <div className="skeleton h-44 w-full rounded-lg" />
           ) : (
-            <ResponsiveContainer width="100%" height={180}>
-              <PieChart>
-                <Pie data={porPneu} cx="50%" cy="50%" outerRadius={72} paddingAngle={2} dataKey="value"
-                  label={({ name, percent }) => percent > 0.05 ? `${(percent * 100).toFixed(0)}%` : ''}
-                  labelLine={false}>
-                  {porPneu.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-                <Legend formatter={(v) => <span className="text-xs text-muted-foreground font-medium">{v}</span>} />
-              </PieChart>
-            </ResponsiveContainer>
+            <div>
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+                  <Pie
+                    data={porPneu}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={75}
+                    paddingAngle={2}
+                    dataKey="value"
+                    label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+                      if (percent < 0.05) return null;
+                      const RADIAN = Math.PI / 180;
+                      const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                      return (
+                        <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={600}>
+                          {`${(percent * 100).toFixed(0)}%`}
+                        </text>
+                      );
+                    }}
+                    labelLine={false}
+                  >
+                    {porPneu.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+              {/* Legenda customizada abaixo do gráfico */}
+              <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5 mt-1">
+                {porPneu.map((entry, i) => (
+                  <div key={entry.name} className="flex items-center gap-1.5">
+                    <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                    <span className="text-xs text-muted-foreground font-medium">{entry.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       </div>

@@ -78,3 +78,6 @@
 - [ ] Exibir nome do usuário logado no Dashboard
 - [ ] Página de aceite de convite (/convite/:token)
 - [ ] Notificação ao admin quando colaborador aceitar convite
+
+## Bugs (v7)
+- [x] Corrigir gráfico pizza "Distribuição por Marca de Pneu" cortado no mobile
