@@ -11,6 +11,7 @@ import Programacao from "./pages/Programacao";
 import Importacao from "./pages/Importacao";
 import VeiculoDetalhe from "./pages/VeiculoDetalhe";
 import Colaboradores from "./pages/Colaboradores";
+import Instalacao from "./pages/Instalacao";
 import AceitarConvite from "./pages/AceitarConvite";
 import Login from "./pages/Login";
 import { trpc } from "./lib/trpc";
@@ -44,6 +45,7 @@ function ProtectedDashboard() {
         <Route path="/importacao" component={Importacao} />
         <Route path="/veiculo/:id" component={VeiculoDetalhe} />
         <Route path="/colaboradores" component={Colaboradores} />
+        <Route path="/instalar" component={Instalacao} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>

@@ -90,3 +90,7 @@
 - [x] Middleware de sessão independente do OAuth Manus
 - [x] Admin cadastrado no banco com e-mail omegarepresentacoes01@gmail.com
 - [x] Colaboradores acessam via convite por link e definem senha no primeiro acesso
+
+## Guia de Instalação PWA (v9)
+- [x] Página de instruções visuais para instalar como app no Android e iOS
+- [x] Link no menu lateral para a página de instruções

@@ -11,7 +11,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { trpc } from "@/lib/trpc";
 import {
-  BarChart3, Calendar, Car, LogOut, Menu, Moon, Sun, Upload, Users, X,
+  BarChart3, Calendar, Car, LogOut, Menu, Moon, Smartphone, Sun, Upload, Users, X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -24,6 +24,7 @@ const menuItems = [
   { icon: Calendar, label: "Programação",  path: "/programacao",   adminOnly: false },
   { icon: Upload,   label: "Importação",   path: "/importacao",    adminOnly: true },
   { icon: Users,    label: "Colaboradores", path: "/colaboradores", adminOnly: true },
+  { icon: Smartphone, label: "Instalar App",  path: "/instalar",      adminOnly: false },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
