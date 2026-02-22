@@ -393,10 +393,10 @@ export async function getColaboradorByEmail(email: string) {
   return result[0];
 }
 
-export async function getColaboradorByUserId(userId: number) {
+export async function getColaboradorById(id: number) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(colaboradores).where(eq(colaboradores.userId, userId)).limit(1);
+  const result = await db.select().from(colaboradores).where(eq(colaboradores.id, id)).limit(1);
   return result[0];
 }
 
@@ -404,7 +404,7 @@ export async function upsertColaborador(data: InsertColaborador) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.insert(colaboradores).values(data).onDuplicateKeyUpdate({
-    set: { nome: data.nome, role: data.role, status: data.status, userId: data.userId, lastAccessAt: new Date() },
+    set: { nome: data.nome, role: data.role, status: data.status, lastAccessAt: new Date() },
   });
 }
 
@@ -420,10 +420,16 @@ export async function deleteColaborador(id: number) {
   await db.delete(colaboradores).where(eq(colaboradores.id, id));
 }
 
-export async function updateColaboradorLastAccess(userId: number) {
+export async function updateColaboradorLastAccess(id: number) {
   const db = await getDb();
   if (!db) return;
-  await db.update(colaboradores).set({ lastAccessAt: new Date() }).where(eq(colaboradores.userId, userId));
+  await db.update(colaboradores).set({ lastAccessAt: new Date() }).where(eq(colaboradores.id, id));
+}
+
+export async function setColaboradorPassword(id: number, passwordHash: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(colaboradores).set({ passwordHash, status: 'ativo' }).where(eq(colaboradores.id, id));
 }
 
 // ============ CONVITES ============
@@ -447,15 +453,10 @@ export async function getInvites() {
   return db.select().from(invites).orderBy(desc(invites.createdAt));
 }
 
-export async function acceptInvite(token: string, userId: number) {
+export async function acceptInvite(token: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.update(invites).set({ status: 'aceito', acceptedAt: new Date() }).where(eq(invites.token, token));
-  // Atualizar userId no colaborador
-  const invite = await getInviteByToken(token);
-  if (invite) {
-    await db.update(colaboradores).set({ userId, status: 'ativo' }).where(eq(colaboradores.email, invite.email));
-  }
 }
 
 export async function revokeInvite(id: number) {

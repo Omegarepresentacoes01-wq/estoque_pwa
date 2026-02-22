@@ -4,7 +4,7 @@ import { nanoid } from "nanoid";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { publicProcedure, router } from "./_core/trpc";
 import { notifyOwner } from "./_core/notification";
 import {
   getVeiculos, getVeiculoById, createVeiculo, deleteVeiculo,
@@ -12,11 +12,12 @@ import {
   getProgramacao, createProgramacao, updateProgramacao, deleteProgramacao, getProgramacaoFiltros,
   bulkImportVeiculos, bulkImportProgramacao,
   addHistorico, getHistoricoByVeiculoId, updateVeiculoComHistorico,
-  getColaboradores, getColaboradorByEmail, getColaboradorByUserId,
+  getColaboradores, getColaboradorByEmail, getColaboradorById,
   upsertColaborador, updateColaboradorStatus, deleteColaborador, updateColaboradorLastAccess,
+  setColaboradorPassword,
   createInvite, getInviteByToken, getInvites, acceptInvite, revokeInvite, expireOldInvites,
 } from "./db";
-import { ENV } from "./_core/env";
+import { hashPassword, verifyPassword, createToken, authenticateOwnRequest } from "./auth";
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
@@ -74,45 +75,95 @@ const ProgramacaoInputSchema = z.object({
   local: z.string().optional().nullable(),
 });
 
-// ─── Middleware de autorização ───────────────────────────────────────────────
+// ─── Helpers de contexto próprio ────────────────────────────────────────────
 
-// Procedure que exige que o usuário seja admin (dono do projeto)
-const adminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
-  if (ctx.user.role !== 'admin') {
-    throw new TRPCError({ code: 'FORBIDDEN', message: 'Acesso restrito a administradores.' });
-  }
-  return next({ ctx });
-});
+type OwnUser = {
+  id: number;
+  email: string;
+  nome: string;
+  role: "admin" | "colaborador";
+};
+
+// Extrai o usuário autenticado pelo JWT próprio (não usa ctx.user do Manus)
+async function getOwnUser(req: any): Promise<OwnUser | null> {
+  const payload = await authenticateOwnRequest(req);
+  if (!payload) return null;
+  return {
+    id: parseInt(payload.sub),
+    email: payload.email,
+    nome: payload.nome,
+    role: payload.role,
+  };
+}
+
+function requireAdmin(user: OwnUser | null): asserts user is OwnUser {
+  if (!user) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Faça login para continuar.' });
+  if (user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'Acesso restrito a administradores.' });
+}
+
+function requireAuth(user: OwnUser | null): asserts user is OwnUser {
+  if (!user) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Faça login para continuar.' });
+}
 
 // ─── Router principal ────────────────────────────────────────────────────────
 
 export const appRouter = router({
   system: systemRouter,
 
+  // ============ AUTH PRÓPRIO ============
   auth: router({
-    me: publicProcedure.query(async (opts) => {
-      const user = opts.ctx.user;
+    me: publicProcedure.query(async ({ ctx }) => {
+      const user = await getOwnUser(ctx.req);
       if (!user) return null;
-      // Verificar se é colaborador registrado e retornar dados enriquecidos
-      const colaborador = await getColaboradorByUserId(user.id);
-      if (colaborador) {
-        // Atualizar último acesso
-        await updateColaboradorLastAccess(user.id);
-        return {
-          ...user,
-          colaboradorRole: colaborador.role, // 'colaborador' | 'admin'
-          colaboradorNome: colaborador.nome,
-          isColaborador: true,
-          canEdit: colaborador.role === 'admin',
-        };
-      }
-      // Usuário dono (admin nativo do Manus OAuth)
+      await updateColaboradorLastAccess(user.id);
       return {
-        ...user,
-        colaboradorRole: 'admin' as const,
-        colaboradorNome: user.name,
-        isColaborador: false,
-        canEdit: true,
+        id: user.id,
+        email: user.email,
+        nome: user.nome,
+        role: user.role,
+        canEdit: user.role === 'admin',
+      };
+    }),
+
+    login: publicProcedure.input(z.object({
+      email: z.string().email('E-mail inválido'),
+      password: z.string().min(1, 'Senha obrigatória'),
+    })).mutation(async ({ input, ctx }) => {
+      const colaborador = await getColaboradorByEmail(input.email.toLowerCase());
+      if (!colaborador) {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'E-mail ou senha incorretos.' });
+      }
+      if (colaborador.status === 'inativo') {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Sua conta está inativa. Contate o administrador.' });
+      }
+      if (!colaborador.passwordHash) {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Senha não definida. Use o link de convite para criar sua senha.' });
+      }
+      const valid = await verifyPassword(input.password, colaborador.passwordHash);
+      if (!valid) {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'E-mail ou senha incorretos.' });
+      }
+      const token = await createToken({
+        sub: String(colaborador.id),
+        email: colaborador.email,
+        nome: colaborador.nome,
+        role: colaborador.role,
+      });
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.cookie(COOKIE_NAME, token, {
+        ...cookieOptions,
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 dias
+      });
+      await updateColaboradorLastAccess(colaborador.id);
+      return {
+        success: true,
+        user: {
+          id: colaborador.id,
+          email: colaborador.email,
+          nome: colaborador.nome,
+          role: colaborador.role,
+          canEdit: colaborador.role === 'admin',
+        },
       };
     }),
 
@@ -121,9 +172,69 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
+
+    // Definir senha ao aceitar convite
+    setPassword: publicProcedure.input(z.object({
+      token: z.string(),
+      password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
+    })).mutation(async ({ input, ctx }) => {
+      await expireOldInvites();
+      const invite = await getInviteByToken(input.token);
+      if (!invite) throw new TRPCError({ code: 'NOT_FOUND', message: 'Convite não encontrado.' });
+      if (invite.status === 'expirado') throw new TRPCError({ code: 'BAD_REQUEST', message: 'Este convite expirou.' });
+      if (invite.status === 'revogado') throw new TRPCError({ code: 'BAD_REQUEST', message: 'Este convite foi revogado.' });
+
+      const colaborador = await getColaboradorByEmail(invite.email);
+      if (!colaborador) throw new TRPCError({ code: 'NOT_FOUND', message: 'Colaborador não encontrado.' });
+
+      const passwordHash = await hashPassword(input.password);
+      await setColaboradorPassword(colaborador.id, passwordHash);
+      await acceptInvite(input.token);
+
+      // Login automático após definir senha
+      const jwtToken = await createToken({
+        sub: String(colaborador.id),
+        email: colaborador.email,
+        nome: colaborador.nome,
+        role: invite.role,
+      });
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.cookie(COOKIE_NAME, jwtToken, {
+        ...cookieOptions,
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+      });
+
+      await notifyOwner({
+        title: `✅ ${invite.nome} ativou o acesso`,
+        content: `${invite.nome} (${invite.email}) definiu sua senha e agora tem acesso ao sistema como "${invite.role}".`,
+      });
+
+      return {
+        success: true,
+        user: { id: colaborador.id, email: colaborador.email, nome: colaborador.nome, role: invite.role, canEdit: invite.role === 'admin' },
+      };
+    }),
+
+    // Alterar própria senha (usuário logado)
+    changePassword: publicProcedure.input(z.object({
+      currentPassword: z.string().min(1),
+      newPassword: z.string().min(6, 'Nova senha deve ter pelo menos 6 caracteres'),
+    })).mutation(async ({ input, ctx }) => {
+      const user = await getOwnUser(ctx.req);
+      requireAuth(user);
+      const colaborador = await getColaboradorById(user.id);
+      if (!colaborador || !colaborador.passwordHash) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Senha atual não definida.' });
+      }
+      const valid = await verifyPassword(input.currentPassword, colaborador.passwordHash);
+      if (!valid) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Senha atual incorreta.' });
+      const newHash = await hashPassword(input.newPassword);
+      await setColaboradorPassword(user.id, newHash);
+      return { success: true };
+    }),
   }),
 
-  // ============ VEÍCULOS (leitura pública, escrita protegida) ============
+  // ============ VEÍCULOS ============
   veiculos: router({
     list: publicProcedure.input(VeiculoFiltersSchema).query(async ({ input }) => {
       return getVeiculos(input);
@@ -135,17 +246,12 @@ export const appRouter = router({
       return v;
     }),
 
-    update: protectedProcedure.input(z.object({ id: z.number(), data: VeiculoInputSchema.partial() })).mutation(async ({ input, ctx }) => {
-      // Verificar se tem permissão de edição
-      const colaborador = await getColaboradorByUserId(ctx.user.id);
-      if (colaborador && colaborador.role === 'colaborador') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Colaboradores não podem editar veículos.' });
-      }
+    update: publicProcedure.input(z.object({ id: z.number(), data: VeiculoInputSchema.partial() })).mutation(async ({ input, ctx }) => {
+      const user = await getOwnUser(ctx.req);
+      requireAdmin(user);
       const veiculoAtual = await getVeiculoById(input.id);
       if (!veiculoAtual) throw new TRPCError({ code: 'NOT_FOUND', message: 'Veículo não encontrado' });
-      const usuarioNome = ctx.user?.name ?? 'Sistema';
-      const usuarioId = ctx.user?.id ?? 0;
-      await updateVeiculoComHistorico(input.id, input.data as any, usuarioNome, usuarioId, veiculoAtual);
+      await updateVeiculoComHistorico(input.id, input.data as any, user.nome, user.id, veiculoAtual);
       return { success: true };
     }),
 
@@ -153,7 +259,7 @@ export const appRouter = router({
       return getHistoricoByVeiculoId(input.id);
     }),
 
-    addHistorico: protectedProcedure.input(z.object({
+    addHistorico: publicProcedure.input(z.object({
       veiculoId: z.number(),
       tipo: z.string(),
       campo: z.string().optional(),
@@ -161,32 +267,26 @@ export const appRouter = router({
       valorNovo: z.string().optional().nullable(),
       observacao: z.string().optional().nullable(),
     })).mutation(async ({ input, ctx }) => {
-      const colaborador = await getColaboradorByUserId(ctx.user.id);
-      if (colaborador && colaborador.role === 'colaborador') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Colaboradores não podem registrar alterações.' });
-      }
+      const user = await getOwnUser(ctx.req);
+      requireAdmin(user);
       await addHistorico({
         ...input,
-        usuarioNome: ctx.user?.name ?? 'Sistema',
-        usuarioId: ctx.user?.id ?? 0,
+        usuarioNome: user.nome,
+        usuarioId: user.id,
       });
       return { success: true };
     }),
 
-    create: protectedProcedure.input(VeiculoInputSchema).mutation(async ({ input, ctx }) => {
-      const colaborador = await getColaboradorByUserId(ctx.user.id);
-      if (colaborador && colaborador.role === 'colaborador') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Colaboradores não podem adicionar veículos.' });
-      }
+    create: publicProcedure.input(VeiculoInputSchema).mutation(async ({ input, ctx }) => {
+      const user = await getOwnUser(ctx.req);
+      requireAdmin(user);
       await createVeiculo(input as any);
       return { success: true };
     }),
 
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
-      const colaborador = await getColaboradorByUserId(ctx.user.id);
-      if (colaborador && colaborador.role === 'colaborador') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Colaboradores não podem excluir veículos.' });
-      }
+    delete: publicProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
+      const user = await getOwnUser(ctx.req);
+      requireAdmin(user);
       await deleteVeiculo(input.id);
       return { success: true };
     }),
@@ -214,29 +314,23 @@ export const appRouter = router({
       return getProgramacao(input);
     }),
 
-    create: protectedProcedure.input(ProgramacaoInputSchema).mutation(async ({ input, ctx }) => {
-      const colaborador = await getColaboradorByUserId(ctx.user.id);
-      if (colaborador && colaborador.role === 'colaborador') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Colaboradores não podem adicionar programações.' });
-      }
+    create: publicProcedure.input(ProgramacaoInputSchema).mutation(async ({ input, ctx }) => {
+      const user = await getOwnUser(ctx.req);
+      requireAdmin(user);
       await createProgramacao(input as any);
       return { success: true };
     }),
 
-    update: protectedProcedure.input(z.object({ id: z.number(), data: ProgramacaoInputSchema.partial() })).mutation(async ({ input, ctx }) => {
-      const colaborador = await getColaboradorByUserId(ctx.user.id);
-      if (colaborador && colaborador.role === 'colaborador') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Colaboradores não podem editar programações.' });
-      }
+    update: publicProcedure.input(z.object({ id: z.number(), data: ProgramacaoInputSchema.partial() })).mutation(async ({ input, ctx }) => {
+      const user = await getOwnUser(ctx.req);
+      requireAdmin(user);
       await updateProgramacao(input.id, input.data as any);
       return { success: true };
     }),
 
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
-      const colaborador = await getColaboradorByUserId(ctx.user.id);
-      if (colaborador && colaborador.role === 'colaborador') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Colaboradores não podem excluir programações.' });
-      }
+    delete: publicProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
+      const user = await getOwnUser(ctx.req);
+      requireAdmin(user);
       await deleteProgramacao(input.id);
       return { success: true };
     }),
@@ -270,15 +364,13 @@ export const appRouter = router({
 
   // ============ IMPORTAÇÃO ============
   importacao: router({
-    processarExcel: protectedProcedure.input(z.object({
+    processarExcel: publicProcedure.input(z.object({
       veiculos: z.array(VeiculoInputSchema),
       programacao: z.array(ProgramacaoInputSchema),
       modo: z.enum(['substituir', 'adicionar']).default('adicionar'),
     })).mutation(async ({ input, ctx }) => {
-      const colaborador = await getColaboradorByUserId(ctx.user.id);
-      if (colaborador && colaborador.role === 'colaborador') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Colaboradores não podem importar planilhas.' });
-      }
+      const user = await getOwnUser(ctx.req);
+      requireAdmin(user);
       const resultV = await bulkImportVeiculos(input.veiculos as any);
       let resultP = { imported: 0 };
       if (input.programacao.length > 0) {
@@ -290,29 +382,22 @@ export const appRouter = router({
 
   // ============ COLABORADORES (Admin only) ============
   colaboradores: router({
-    list: protectedProcedure.query(async ({ ctx }) => {
-      const colaborador = await getColaboradorByUserId(ctx.user.id);
-      // Colaboradores comuns não podem ver a lista de gestão
-      if (colaborador && colaborador.role === 'colaborador') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Acesso restrito.' });
-      }
+    list: publicProcedure.query(async ({ ctx }) => {
+      const user = await getOwnUser(ctx.req);
+      requireAdmin(user);
       return getColaboradores();
     }),
 
-    remove: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
-      const colaborador = await getColaboradorByUserId(ctx.user.id);
-      if (colaborador && colaborador.role === 'colaborador') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Acesso restrito.' });
-      }
+    remove: publicProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
+      const user = await getOwnUser(ctx.req);
+      requireAdmin(user);
       await deleteColaborador(input.id);
       return { success: true };
     }),
 
-    toggleStatus: protectedProcedure.input(z.object({ id: z.number(), status: z.enum(['ativo', 'inativo']) })).mutation(async ({ input, ctx }) => {
-      const colaborador = await getColaboradorByUserId(ctx.user.id);
-      if (colaborador && colaborador.role === 'colaborador') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Acesso restrito.' });
-      }
+    toggleStatus: publicProcedure.input(z.object({ id: z.number(), status: z.enum(['ativo', 'inativo']) })).mutation(async ({ input, ctx }) => {
+      const user = await getOwnUser(ctx.req);
+      requireAdmin(user);
       await updateColaboradorStatus(input.id, input.status);
       return { success: true };
     }),
@@ -320,51 +405,44 @@ export const appRouter = router({
 
   // ============ CONVITES ============
   convites: router({
-    list: protectedProcedure.query(async ({ ctx }) => {
-      const colaborador = await getColaboradorByUserId(ctx.user.id);
-      if (colaborador && colaborador.role === 'colaborador') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Acesso restrito.' });
-      }
+    list: publicProcedure.query(async ({ ctx }) => {
+      const user = await getOwnUser(ctx.req);
+      requireAdmin(user);
       await expireOldInvites();
       return getInvites();
     }),
 
-    create: protectedProcedure.input(z.object({
+    create: publicProcedure.input(z.object({
       nome: z.string().min(2, 'Nome obrigatório'),
       email: z.string().email('E-mail inválido'),
       role: z.enum(['colaborador', 'admin']).default('colaborador'),
-      origin: z.string(), // URL de origem para montar o link
+      origin: z.string(),
     })).mutation(async ({ input, ctx }) => {
-      const colaborador = await getColaboradorByUserId(ctx.user.id);
-      if (colaborador && colaborador.role === 'colaborador') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Acesso restrito.' });
-      }
+      const user = await getOwnUser(ctx.req);
+      requireAdmin(user);
 
       const token = nanoid(32);
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 dias
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-      // Criar ou atualizar colaborador no banco
       await upsertColaborador({
         nome: input.nome,
         email: input.email.toLowerCase(),
         role: input.role,
         status: 'ativo',
-        convidadoPor: ctx.user.name ?? 'Admin',
+        convidadoPor: user.nome,
       });
 
-      // Criar token de convite
       await createInvite({
         token,
         email: input.email.toLowerCase(),
         nome: input.nome,
         role: input.role,
-        criadoPor: ctx.user.name ?? 'Admin',
+        criadoPor: user.nome,
         expiresAt,
       });
 
       const inviteUrl = `${input.origin}/convite/${token}`;
 
-      // Notificar o dono do projeto
       await notifyOwner({
         title: `👤 Convite enviado para ${input.nome}`,
         content: `Um link de acesso foi gerado para ${input.nome} (${input.email}) com perfil "${input.role}".\n\nLink: ${inviteUrl}\n\nExpira em 7 dias.`,
@@ -382,34 +460,9 @@ export const appRouter = router({
       return invite;
     }),
 
-    accept: protectedProcedure.input(z.object({ token: z.string() })).mutation(async ({ input, ctx }) => {
-      await expireOldInvites();
-      const invite = await getInviteByToken(input.token);
-      if (!invite) throw new TRPCError({ code: 'NOT_FOUND', message: 'Convite não encontrado.' });
-      if (invite.status !== 'pendente') throw new TRPCError({ code: 'BAD_REQUEST', message: 'Este convite não está mais disponível.' });
-
-      // Verificar se o email do convite bate com o email do usuário logado
-      const userEmail = ctx.user.email?.toLowerCase();
-      if (userEmail && invite.email !== userEmail) {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Este convite não pertence ao seu e-mail.' });
-      }
-
-      await acceptInvite(input.token, ctx.user.id);
-
-      // Notificar o admin
-      await notifyOwner({
-        title: `✅ ${invite.nome} aceitou o convite`,
-        content: `${invite.nome} (${invite.email}) aceitou o convite e agora tem acesso ao sistema como "${invite.role}".`,
-      });
-
-      return { success: true, role: invite.role, nome: invite.nome };
-    }),
-
-    revoke: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
-      const colaborador = await getColaboradorByUserId(ctx.user.id);
-      if (colaborador && colaborador.role === 'colaborador') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Acesso restrito.' });
-      }
+    revoke: publicProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
+      const user = await getOwnUser(ctx.req);
+      requireAdmin(user);
       await revokeInvite(input.id);
       return { success: true };
     }),

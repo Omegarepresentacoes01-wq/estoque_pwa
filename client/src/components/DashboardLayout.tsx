@@ -1,4 +1,3 @@
-import { useAuth } from "@/_core/hooks/useAuth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -7,10 +6,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile.tsx";
 import { useTheme } from "@/contexts/ThemeContext";
 import { usePermissions } from "@/hooks/usePermissions";
+import { trpc } from "@/lib/trpc";
 import {
   BarChart3, Calendar, Car, LogOut, Menu, Moon, Sun, Upload, Users, X,
 } from "lucide-react";
@@ -28,42 +27,15 @@ const menuItems = [
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { loading, user } = useAuth();
-  if (loading) return <DashboardLayoutSkeleton />;
-
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="flex flex-col items-center gap-8 p-8 max-w-sm w-full">
-          <div className="flex flex-col items-center gap-3">
-            <div className="flex items-center justify-center mb-2">
-              <img src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663029800535/kQdbGGvzssQCloXE.png" alt="Covezi Iveco" className="h-14 w-auto object-contain" />
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight text-center text-foreground">
-              Gestão de Estoque
-            </h1>
-            <p className="text-sm text-muted-foreground text-center">
-              Faça login para acessar o sistema de gestão de veículos.
-            </p>
-          </div>
-          <Button
-            onClick={() => { window.location.href = getLoginUrl(); }}
-            size="lg"
-            className="w-full"
-          >
-            Entrar no Sistema
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   return <DashboardLayoutContent>{children}</DashboardLayoutContent>;
 }
 
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
-  const { user, logout } = useAuth();
-  const { canEdit } = usePermissions();
+  const { canEdit, user } = usePermissions();
+  const logoutMutation = trpc.auth.logout.useMutation({
+    onSuccess: () => { window.location.href = '/login'; },
+  });
+  const logout = () => logoutMutation.mutate();
   const [location, setLocation] = useLocation();
   const isMobile = useIsMobile();
   const { theme, toggleTheme } = useTheme();
@@ -103,8 +75,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     item => item.path === location || (item.path !== "/" && location.startsWith(item.path))
   );
 
-  const initials = user?.name
-    ? user.name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase()
+  const displayName = user?.nome ?? user?.email ?? '';
+  const initials = displayName
+    ? displayName.split(" ").map((n: string) => n[0]).slice(0, 2).join("").toUpperCase()
     : "U";
 
   /* ── MOBILE LAYOUT ─────────────────────────────────────────────────────── */
@@ -151,7 +124,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <div className="px-3 py-2">
-                  <p className="text-xs font-semibold text-foreground truncate">{user?.name}</p>
+                  <p className="text-xs font-semibold text-foreground truncate">{user?.nome ?? user?.email}</p>
                   <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                 </div>
                 <DropdownMenuSeparator />
@@ -216,7 +189,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-sidebar-foreground truncate">{user?.name}</p>
+                <p className="text-xs font-semibold text-sidebar-foreground truncate">{user?.nome ?? user?.email}</p>
                 <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
               </div>
             </div>
@@ -308,7 +281,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-sidebar-foreground truncate leading-none">{user?.name}</p>
+                  <p className="text-xs font-semibold text-sidebar-foreground truncate leading-none">{user?.nome ?? user?.email}</p>
                   <p className="text-xs text-muted-foreground truncate mt-0.5">{user?.email}</p>
                 </div>
               </button>

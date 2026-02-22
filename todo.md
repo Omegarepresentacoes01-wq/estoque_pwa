@@ -67,17 +67,26 @@
 - [x] Registro automático de histórico ao editar status/cliente
 
 ## Controle de Acesso por Perfil (v5)
-- [ ] Tabela `invites` no banco (token, email, nome, role, usado, expirado)
-- [ ] Tabela `colaboradores` com email, nome, role (admin/colaborador)
-- [ ] Router tRPC: invites.create, invites.accept, invites.list, invites.revoke
-- [ ] Router tRPC: colaboradores.list, colaboradores.remove, colaboradores.changeRole
-- [ ] Login de colaborador via link de convite (sem senha, somente email+nome)
-- [ ] Middleware de autorização: Admin vs Colaborador
-- [ ] Bloquear mutations no frontend para Colaborador (botões ocultos/desabilitados)
-- [ ] Página de gerenciamento de colaboradores (Admin only)
-- [ ] Exibir nome do usuário logado no Dashboard
-- [ ] Página de aceite de convite (/convite/:token)
-- [ ] Notificação ao admin quando colaborador aceitar convite
+- [x] Tabela `invites` no banco (token, email, nome, role, usado, expirado)
+- [x] Tabela `colaboradores` com email, nome, role (admin/colaborador)
+- [x] Router tRPC: invites.create, invites.accept, invites.list, invites.revoke
+- [x] Router tRPC: colaboradores.list, colaboradores.remove, colaboradores.changeRole
+- [x] Login de colaborador via link de convite (com definição de senha)
+- [x] Middleware de autorização: Admin vs Colaborador
+- [x] Bloquear mutations no frontend para Colaborador (botões ocultos/desabilitados)
+- [x] Página de gerenciamento de colaboradores (Admin only)
+- [x] Exibir nome do usuário logado no Dashboard
+- [x] Página de aceite de convite (/convite/:token)
+- [x] Notificação ao admin quando colaborador aceitar convite
 
 ## Bugs (v7)
 - [x] Corrigir gráfico pizza "Distribuição por Marca de Pneu" cortado no mobile
+
+## Autenticação Própria por E-mail (v8)
+- [x] Tabela de sessões JWT próprias no banco (bcrypt + JWT)
+- [x] Backend: login com e-mail + senha (sem dependência de e-mail externo)
+- [x] Backend: validar senha com bcrypt e criar sessão JWT própria
+- [x] Tela de login com campo e-mail + senha
+- [x] Middleware de sessão independente do OAuth Manus
+- [x] Admin cadastrado no banco com e-mail omegarepresentacoes01@gmail.com
+- [x] Colaboradores acessam via convite por link e definem senha no primeiro acesso

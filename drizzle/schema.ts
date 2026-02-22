@@ -107,12 +107,12 @@ export const colaboradores = mysqlTable("colaboradores", {
   nome: varchar("nome", { length: 256 }).notNull(),
   // Email do colaborador
   email: varchar("email", { length: 320 }).notNull().unique(),
+  // Senha hash (bcrypt) - definida pelo colaborador ao aceitar convite
+  passwordHash: varchar("passwordHash", { length: 256 }),
   // Papel: colaborador (somente leitura) ou admin
   role: mysqlEnum("role", ["colaborador", "admin"]).default("colaborador").notNull(),
   // Status: ativo ou inativo
   status: mysqlEnum("status", ["ativo", "inativo"]).default("ativo").notNull(),
-  // ID do usuário Manus (preenchido após aceitar convite)
-  userId: int("userId"),
   // Quem convidou
   convidadoPor: varchar("convidadoPor", { length: 256 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
