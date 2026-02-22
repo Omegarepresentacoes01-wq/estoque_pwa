@@ -136,7 +136,7 @@ export default function Login() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          © {new Date().getFullYear()} Covezi Iveco · Todos os direitos reservados
+          © {new Date().getFullYear()} Next-Tech360 · Todos os direitos reservados
         </p>
       </div>
     </div>
