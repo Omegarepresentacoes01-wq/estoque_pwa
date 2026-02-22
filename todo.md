@@ -94,3 +94,7 @@
 ## Guia de Instalação PWA (v9)
 - [x] Página de instruções visuais para instalar como app no Android e iOS
 - [x] Link no menu lateral para a página de instruções
+
+## Exportação PDF (v10)
+- [x] Botão "Baixar PDF" na página de detalhes do veículo
+- [x] PDF com logo Covezi Iveco, todos os campos e histórico de alterações

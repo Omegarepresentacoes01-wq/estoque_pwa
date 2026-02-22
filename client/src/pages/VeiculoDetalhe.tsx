@@ -28,6 +28,7 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
+  Download,
   Edit3,
   FileText,
   Hash,
@@ -43,6 +44,7 @@ import {
 import { useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { toast } from "sonner";
+import { gerarPDFVeiculo } from "@/lib/pdfVeiculo";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -338,7 +340,21 @@ export default function VeiculoDetalhe() {
   const [, setLocation] = useLocation();
   const isMobile = useIsMobile();
   const [editOpen, setEditOpen] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const { user } = useAuth();
+
+  const handleDownloadPDF = async () => {
+    setPdfLoading(true);
+    try {
+      await gerarPDFVeiculo(veiculo, historico);
+      toast.success("PDF gerado com sucesso!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao gerar PDF. Tente novamente.");
+    } finally {
+      setPdfLoading(false);
+    }
+  };
 
   const {
     data: veiculo,
@@ -406,14 +422,29 @@ export default function VeiculoDetalhe() {
             )}
           </p>
         </div>
-        <Button
-          onClick={() => setEditOpen(true)}
-          size="sm"
-          className="shrink-0"
-        >
-          <Edit3 className="w-4 h-4 mr-1" />
-          {!isMobile && "Editar"}
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownloadPDF}
+            disabled={pdfLoading}
+            className="border-2"
+          >
+            {pdfLoading ? (
+              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4 mr-1" />
+            )}
+            {!isMobile && (pdfLoading ? "Gerando..." : "PDF")}
+          </Button>
+          <Button
+            onClick={() => setEditOpen(true)}
+            size="sm"
+          >
+            <Edit3 className="w-4 h-4 mr-1" />
+            {!isMobile && "Editar"}
+          </Button>
+        </div>
       </div>
 
       {/* ── Cards de métricas ── */}

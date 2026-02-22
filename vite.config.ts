@@ -175,6 +175,7 @@ const plugins = [
     },
     workbox: {
       globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+      maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MiB
       runtimeCaching: [
         {
           urlPattern: /^\/api\/trpc\//,
@@ -201,6 +202,17 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    chunkSizeWarningLimit: 3000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-pdf': ['jspdf'],
+          'vendor-charts': ['recharts'],
+          'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-tabs'],
+        },
+      },
+    },
   },
   server: {
     host: true,
