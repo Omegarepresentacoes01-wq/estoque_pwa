@@ -101,3 +101,6 @@
 
 ## Controle de Acesso - Ajustes (v11)
 - [x] Ocultar botão "Editar" na página de detalhes do veículo para colaboradores (somente Admin pode editar)
+
+## Correcção PDF (v12)
+- [x] Corrigir letras cortadas e alinhamento de texto no PDF gerado

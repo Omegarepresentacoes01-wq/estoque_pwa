@@ -1,55 +1,57 @@
 import jsPDF from "jspdf";
 
-const LOGO_URL = "https://static.manus.space/files/covezi-logo-main.png";
-const PRIMARY = [0, 82, 165] as [number, number, number];     // azul Covezi
-const DARK    = [15, 23, 42] as [number, number, number];     // slate-900
-const GRAY    = [100, 116, 139] as [number, number, number];  // slate-500
-const LIGHT   = [241, 245, 249] as [number, number, number];  // slate-100
-const WHITE   = [255, 255, 255] as [number, number, number];
-const RED     = [220, 38, 38] as [number, number, number];
-const GREEN   = [22, 163, 74] as [number, number, number];
-const AMBER   = [217, 119, 6] as [number, number, number];
+// ─── Paleta ───────────────────────────────────────────────────────────────────
+const PRIMARY : [number,number,number] = [0,   82,  165];
+const DARK    : [number,number,number] = [15,  23,  42 ];
+const GRAY    : [number,number,number] = [100, 116, 139];
+const LIGHT   : [number,number,number] = [241, 245, 249];
+const WHITE   : [number,number,number] = [255, 255, 255];
+const RED     : [number,number,number] = [220, 38,  38 ];
+const GREEN   : [number,number,number] = [22,  163, 74 ];
+const AMBER   : [number,number,number] = [217, 119, 6  ];
 
-function fmt(val: string | number | null | undefined): string {
-  if (val == null || val === "") return "—";
-  return String(val);
-}
+// ─── Formatadores ─────────────────────────────────────────────────────────────
+const fmt = (v: unknown): string =>
+  v == null || v === "" ? "—" : String(v);
 
-function fmtDate(val: string | Date | null | undefined): string {
-  if (!val) return "—";
-  try { return new Date(val).toLocaleDateString("pt-BR"); } catch { return String(val); }
-}
+const fmtDate = (v: unknown): string => {
+  if (!v) return "—";
+  try { return new Date(v as string).toLocaleDateString("pt-BR"); } catch { return String(v); }
+};
 
-function fmtDatetime(val: string | Date | null | undefined): string {
-  if (!val) return "—";
-  try { return new Date(val).toLocaleString("pt-BR"); } catch { return String(val); }
-}
+const fmtDatetime = (v: unknown): string => {
+  if (!v) return "—";
+  try { return new Date(v as string).toLocaleString("pt-BR"); } catch { return String(v); }
+};
 
-function tipoLabel(tipo: string, campo?: string | null): string {
-  if (tipo === "status_change") return "Status alterado";
-  if (tipo === "cliente_change") return "Cliente alterado";
-  if (tipo === "localizacao_change") return "Localização alterada";
+const tipoLabel = (tipo: string, campo?: string | null): string => {
+  const map: Record<string, string> = {
+    status_change: "Status alterado",
+    cliente_change: "Cliente alterado",
+    localizacao_change: "Localização alterada",
+    criado: "Veículo cadastrado",
+  };
   if (tipo === "campo_change" && campo) {
-    const labels: Record<string, string> = {
+    const campos: Record<string, string> = {
       observacao: "Observação atualizada", implemento: "Implemento atualizado",
       pneu: "Pneu atualizado", defletor: "Defletor atualizado",
       diasEstoque: "Dias de estoque atualizados", diasPatio: "Dias de pátio atualizados",
       cor: "Cor atualizada", anoMod: "Ano/Mod atualizado",
       dataChegadaCovezi: "Data de chegada atualizada", dataAtual: "Data atual atualizada",
     };
-    return labels[campo] ?? `Campo "${campo}" alterado`;
+    return campos[campo] ?? `Campo "${campo}" alterado`;
   }
-  if (tipo === "criado") return "Veículo cadastrado";
-  return "Registro editado";
-}
+  return map[tipo] ?? "Registro editado";
+};
 
+// ─── Carrega imagem como base64 via canvas ────────────────────────────────────
 function loadImageAsBase64(url: string): Promise<string | null> {
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
       const canvas = document.createElement("canvas");
-      canvas.width = img.width;
+      canvas.width  = img.width;
       canvas.height = img.height;
       const ctx = canvas.getContext("2d");
       if (!ctx) { resolve(null); return; }
@@ -61,151 +63,210 @@ function loadImageAsBase64(url: string): Promise<string | null> {
   });
 }
 
+// ─── Gerador principal ────────────────────────────────────────────────────────
 export async function gerarPDFVeiculo(veiculo: any, historico: any[]): Promise<void> {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const PW = 210; // page width
-  const ML = 14;  // margin left
-  const MR = 14;  // margin right
-  const CW = PW - ML - MR; // content width
-  let y = 0;
+  const doc  = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
 
-  // ── Helpers de desenho ────────────────────────────────────────────────────
+  // Dimensões em pontos (A4 = 595 × 842 pt)
+  const PW   = 595;
+  const PH   = 842;
+  const ML   = 40;   // margem esquerda
+  const MR   = 40;   // margem direita
+  const CW   = PW - ML - MR; // largura do conteúdo = 515 pt
+  const FOOT = 30;   // altura do rodapé
 
-  const setFill = (rgb: [number, number, number]) => doc.setFillColor(rgb[0], rgb[1], rgb[2]);
-  const setDraw = (rgb: [number, number, number]) => doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
-  const setTxt  = (rgb: [number, number, number]) => doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+  // Tipografia: tamanhos em pt, line-height = fontSize * 1.4
+  const FS_LABEL  = 7.5;
+  const FS_VALUE  = 9.5;
+  const FS_SMALL  = 8;
+  const LH_VALUE  = FS_VALUE  * 1.45;
+  const LH_SMALL  = FS_SMALL  * 1.45;
+  const LH_LABEL  = FS_LABEL  * 1.45;
 
-  function checkPage(needed = 10) {
-    if (y + needed > 280) {
+  let y = 0; // posição vertical corrente (baseline da próxima linha)
+
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+
+  const sf = (c: [number,number,number]) => doc.setFillColor(c[0], c[1], c[2]);
+  const sd = (c: [number,number,number]) => doc.setDrawColor(c[0], c[1], c[2]);
+  const st = (c: [number,number,number]) => doc.setTextColor(c[0], c[1], c[2]);
+
+  /** Garante que há espaço suficiente; se não, adiciona página. */
+  function ensureSpace(needed: number) {
+    if (y + needed > PH - FOOT - 10) {
       doc.addPage();
-      y = 14;
+      y = ML;
     }
   }
 
-  function sectionTitle(title: string) {
-    checkPage(12);
-    setFill(LIGHT);
-    setDraw(PRIMARY);
-    doc.setLineWidth(0.4);
-    doc.roundedRect(ML, y, CW, 8, 1, 1, "FD");
+  /**
+   * Escreve um bloco label + valor e retorna a altura total consumida.
+   * x      = posição X absoluta
+   * maxW   = largura máxima disponível para o texto
+   */
+  function writeField(
+    label: string,
+    value: string,
+    x: number,
+    maxW: number,
+  ): number {
+    // Label
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    setTxt(PRIMARY);
-    doc.text(title.toUpperCase(), ML + 3, y + 5.5);
-    y += 11;
-  }
-
-  function infoRow(label: string, value: string, col: 0 | 1 = 0, colTotal = 1) {
-    const colW = CW / colTotal;
-    const x = ML + col * colW;
-    checkPage(8);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
-    setTxt(GRAY);
+    doc.setFontSize(FS_LABEL);
+    st(GRAY);
     doc.text(label.toUpperCase(), x, y);
+
+    // Valor (pode ter múltiplas linhas)
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    setTxt(DARK);
-    const lines = doc.splitTextToSize(value, colW - 4);
-    doc.text(lines, x, y + 4);
-    return Math.max(lines.length * 4.5 + 5, 10);
+    doc.setFontSize(FS_VALUE);
+    st(DARK);
+    const lines: string[] = doc.splitTextToSize(value, maxW);
+    const valueY = y + LH_LABEL + 2; // espaço entre label e valor
+    doc.text(lines, x, valueY);
+
+    // Altura total = label + espaço + linhas de valor
+    return LH_LABEL + 2 + lines.length * LH_VALUE + 4;
   }
 
-  function twoColRows(rows: { label: string; value: string }[]) {
-    let i = 0;
-    while (i < rows.length) {
+  /**
+   * Renderiza pares de campos em duas colunas.
+   * Cada par ocupa a mesma altura (máximo das duas colunas).
+   */
+  function twoColSection(rows: { label: string; value: string }[]) {
+    const colW = (CW - 20) / 2; // 20 pt de gap entre colunas
+
+    for (let i = 0; i < rows.length; i += 2) {
       const left  = rows[i];
       const right = rows[i + 1];
-      checkPage(10);
-      const hL = infoRow(left.label, left.value, 0, 2);
-      const hR = right ? infoRow(right.label, right.value, 1, 2) : 0;
-      y += Math.max(hL, hR, 10);
-      // divider
-      setDraw([226, 232, 240]);
-      doc.setLineWidth(0.2);
-      doc.line(ML, y - 1, ML + CW, y - 1);
-      i += 2;
+
+      // Calcula alturas sem desenhar para reservar espaço
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(FS_VALUE);
+      const linesL = doc.splitTextToSize(left.value, colW);
+      const linesR = right ? doc.splitTextToSize(right.value, colW) : [];
+      const rowH   = LH_LABEL + 2 + Math.max(linesL.length, linesR.length || 1) * LH_VALUE + 12;
+
+      ensureSpace(rowH);
+
+      // Desenha coluna esquerda
+      writeField(left.label, left.value, ML, colW);
+
+      // Desenha coluna direita (se existir e não for vazia)
+      if (right && right.label) {
+        writeField(right.label, right.value, ML + colW + 20, colW);
+      }
+
+      y += rowH;
+
+      // Linha divisória
+      sd([226, 232, 240]);
+      doc.setLineWidth(0.5);
+      doc.line(ML, y - 6, ML + CW, y - 6);
     }
   }
 
-  // ── Cabeçalho ─────────────────────────────────────────────────────────────
+  /** Título de secção com fundo claro */
+  function sectionTitle(title: string) {
+    ensureSpace(28);
+    const boxH = 20;
+    sf(LIGHT);
+    sd(PRIMARY);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(ML, y, CW, boxH, 3, 3, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    st(PRIMARY);
+    // Centraliza verticalmente: baseline = y + boxH/2 + fontSize*0.35
+    doc.text(title.toUpperCase(), ML + 10, y + boxH / 2 + 9 * 0.35 + 1);
+    y += boxH + 10;
+  }
 
-  // Fundo azul
-  setFill(PRIMARY);
-  doc.rect(0, 0, PW, 38, "F");
+  // ── Cabeçalho ────────────────────────────────────────────────────────────────
 
-  // Logo
-  const logoB64 = await loadImageAsBase64(LOGO_URL);
+  const HEADER_H = 80;
+  sf(PRIMARY);
+  doc.rect(0, 0, PW, HEADER_H, "F");
+
+  const logoB64 = await loadImageAsBase64(
+    "https://static.manus.space/files/covezi-logo-main.png",
+  );
   if (logoB64) {
-    doc.addImage(logoB64, "PNG", ML, 6, 44, 14);
+    // Logo: altura 36 pt, largura proporcional (aprox 2.8:1)
+    doc.addImage(logoB64, "PNG", ML, 22, 100, 36);
   } else {
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    setTxt(WHITE);
-    doc.text("COVEZI IVECO", ML, 16);
+    doc.setFontSize(16);
+    st(WHITE);
+    doc.text("COVEZI IVECO", ML, 48);
   }
 
-  // Título direita
+  // Título à direita
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(13);
-  setTxt(WHITE);
-  doc.text("FICHA DO VEÍCULO", PW - MR, 14, { align: "right" });
+  doc.setFontSize(16);
+  st(WHITE);
+  doc.text("FICHA DO VEÍCULO", PW - MR, 38, { align: "right" });
+
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  setTxt([186, 214, 255]);
-  doc.text(`Gerado em ${fmtDatetime(new Date())}`, PW - MR, 20, { align: "right" });
+  doc.setFontSize(FS_SMALL);
+  st([186, 214, 255] as [number,number,number]);
+  doc.text(`Gerado em ${fmtDatetime(new Date())}`, PW - MR, 38 + LH_SMALL, { align: "right" });
 
-  y = 44;
+  y = HEADER_H + 20;
 
-  // ── Título do veículo ─────────────────────────────────────────────────────
+  // ── Identificação do veículo ──────────────────────────────────────────────
 
+  // Modelo
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(15);
-  setTxt(DARK);
-  doc.text(fmt(veiculo.modelo), ML, y);
-  y += 6;
+  doc.setFontSize(18);
+  st(DARK);
+  const modeloLines: string[] = doc.splitTextToSize(fmt(veiculo.modelo), CW);
+  doc.text(modeloLines, ML, y);
+  y += modeloLines.length * 18 * 1.3 + 6;
 
-  // Status badge
-  const status = (veiculo.status ?? "").toUpperCase();
+  // Badges de status
+  const status      = (veiculo.status ?? "").toUpperCase();
   const statusColor = status === "LIVRE" ? GREEN : status === "RESERVADO" ? AMBER : GRAY;
-  setFill(statusColor);
-  doc.roundedRect(ML, y, 28, 6, 1, 1, "F");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(7.5);
-  setTxt(WHITE);
-  doc.text(status, ML + 14, y + 4, { align: "center" });
+  const BADGE_H     = 16;
+  const BADGE_PAD   = 10;
 
-  // Crítico badge
-  const diasAbs = Math.abs(veiculo.diasEstoque ?? 0);
-  if (diasAbs > 180) {
-    setFill(RED);
-    doc.roundedRect(ML + 31, y, 22, 6, 1, 1, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
-    setTxt(WHITE);
-    doc.text("CRÍTICO", ML + 42, y + 4, { align: "center" });
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  const statusW = doc.getTextWidth(status) + BADGE_PAD * 2;
+  sf(statusColor);
+  doc.roundedRect(ML, y, statusW, BADGE_H, 3, 3, "F");
+  st(WHITE);
+  doc.text(status, ML + statusW / 2, y + BADGE_H / 2 + 8 * 0.35, { align: "center" });
+
+  let badgeX = ML + statusW + 8;
+  if (Math.abs(veiculo.diasEstoque ?? 0) > 180) {
+    const critW = doc.getTextWidth("CRÍTICO") + BADGE_PAD * 2;
+    sf(RED);
+    doc.roundedRect(badgeX, y, critW, BADGE_H, 3, 3, "F");
+    st(WHITE);
+    doc.text("CRÍTICO", badgeX + critW / 2, y + BADGE_H / 2 + 8 * 0.35, { align: "center" });
+    badgeX += critW + 8;
   }
 
-  y += 10;
+  y += BADGE_H + 10;
 
-  // Chassi / NF linha
+  // Chassi / NF
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  setTxt(GRAY);
+  doc.setFontSize(FS_SMALL);
+  st(GRAY);
   const chassiLine = `Chassi: ${fmt(veiculo.chassi)}${veiculo.nf ? `   ·   NF: ${veiculo.nf}` : ""}`;
   doc.text(chassiLine, ML, y);
-  y += 8;
+  y += LH_SMALL + 8;
 
-  // Linha separadora
-  setDraw([203, 213, 225]);
-  doc.setLineWidth(0.4);
+  // Separador
+  sd([203, 213, 225]);
+  doc.setLineWidth(0.75);
   doc.line(ML, y, ML + CW, y);
-  y += 6;
+  y += 16;
 
-  // ── Seção: Identificação ──────────────────────────────────────────────────
+  // ── Secções de dados ──────────────────────────────────────────────────────
 
   sectionTitle("Identificação");
-  twoColRows([
+  twoColSection([
     { label: "NF",           value: fmt(veiculo.nf) },
     { label: "Código",       value: fmt(veiculo.cod) },
     { label: "Modelo",       value: fmt(veiculo.modelo) },
@@ -216,132 +277,168 @@ export async function gerarPDFVeiculo(veiculo: any, historico: any[]): Promise<v
     { label: "",             value: "" },
   ]);
 
-  // ── Seção: Localização e Datas ────────────────────────────────────────────
-
   sectionTitle("Localização e Datas");
-  twoColRows([
-    { label: "Estoque Físico",   value: fmt(veiculo.estoquesFisico) },
-    { label: "Chegada COVEZI",   value: fmtDate(veiculo.dataChegadaCovezi) },
-    { label: "Data Atual",       value: fmtDate(veiculo.dataAtual) },
-    { label: "Dias em Estoque",  value: `${Math.abs(veiculo.diasEstoque ?? 0)} dias` },
-    { label: "Dias de Pátio",    value: `${Math.abs(veiculo.diasPatio ?? 0)} dias` },
-    { label: "",                 value: "" },
+  twoColSection([
+    { label: "Estoque Físico",  value: fmt(veiculo.estoquesFisico) },
+    { label: "Chegada COVEZI", value: fmtDate(veiculo.dataChegadaCovezi) },
+    { label: "Data Atual",      value: fmtDate(veiculo.dataAtual) },
+    { label: "Dias em Estoque", value: `${Math.abs(veiculo.diasEstoque ?? 0)} dias` },
+    { label: "Dias de Pátio",   value: `${Math.abs(veiculo.diasPatio ?? 0)} dias` },
+    { label: "",                value: "" },
   ]);
 
-  // ── Seção: Status e Comercial ─────────────────────────────────────────────
-
   sectionTitle("Status e Comercial");
-  twoColRows([
+  twoColSection([
     { label: "Status",     value: fmt(veiculo.status) },
     { label: "Cliente",    value: fmt(veiculo.cliente) },
     { label: "Observação", value: fmt(veiculo.observacao) },
     { label: "",           value: "" },
   ]);
 
-  // ── Seção: Equipamentos ───────────────────────────────────────────────────
-
   sectionTitle("Equipamentos");
-  twoColRows([
+  twoColSection([
     { label: "Implemento", value: fmt(veiculo.implemento) },
     { label: "Pneu",       value: fmt(veiculo.pneu) },
     { label: "Defletor",   value: fmt(veiculo.defletor) },
     { label: "",           value: "" },
   ]);
 
-  // ── Seção: Histórico de Alterações ────────────────────────────────────────
+  // ── Histórico ─────────────────────────────────────────────────────────────
 
   if (historico.length > 0) {
     sectionTitle(`Histórico de Alterações (${historico.length} registros)`);
 
     historico.forEach((entry, idx) => {
-      checkPage(18);
+      // Estima altura necessária para este evento
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(FS_VALUE);
+      const changeLines = (entry.valorAnterior || entry.valorNovo)
+        ? doc.splitTextToSize(
+            [
+              entry.valorAnterior ? `De: "${entry.valorAnterior}"` : "",
+              entry.valorNovo     ? `Para: "${entry.valorNovo}"`   : "",
+            ].filter(Boolean).join("   →   "),
+            CW - 60,
+          )
+        : [];
+      const obsLines = entry.observacao
+        ? doc.splitTextToSize(entry.observacao, CW - 60)
+        : [];
 
-      // Número do evento
-      setFill(PRIMARY);
-      doc.circle(ML + 3.5, y + 3.5, 3.5, "F");
+      const eventH =
+        LH_VALUE + 4 +                        // tipo
+        (entry.usuarioNome ? LH_SMALL + 2 : 0) +
+        (changeLines.length > 0 ? changeLines.length * LH_SMALL + 16 : 0) +
+        (obsLines.length    > 0 ? obsLines.length    * LH_SMALL + 6  : 0) +
+        12;
+
+      ensureSpace(eventH);
+
+      const rowStartY = y;
+
+      // Círculo numerado
+      const CX = ML + 10;
+      const CY = rowStartY + 10;
+      sf(PRIMARY);
+      doc.circle(CX, CY, 9, "F");
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(7);
-      setTxt(WHITE);
-      doc.text(String(historico.length - idx), ML + 3.5, y + 4.5, { align: "center" });
+      doc.setFontSize(7.5);
+      st(WHITE);
+      doc.text(String(historico.length - idx), CX, CY + 7.5 * 0.35, { align: "center" });
+
+      const TX = ML + 26; // X do texto após o círculo
 
       // Tipo do evento
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(8.5);
-      setTxt(DARK);
-      doc.text(tipoLabel(entry.tipo, entry.campo), ML + 10, y + 4);
+      doc.setFontSize(FS_VALUE);
+      st(DARK);
+      doc.text(tipoLabel(entry.tipo, entry.campo), TX, rowStartY + LH_VALUE);
+
+      // Data (alinhada à direita)
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(FS_SMALL);
+      st(GRAY);
+      doc.text(fmtDatetime(entry.createdAt), PW - MR, rowStartY + LH_VALUE, { align: "right" });
+
+      y = rowStartY + LH_VALUE + 4;
 
       // Usuário
       if (entry.usuarioNome) {
         doc.setFont("helvetica", "italic");
-        doc.setFontSize(7.5);
-        setTxt(GRAY);
-        doc.text(`por ${entry.usuarioNome}`, ML + 10, y + 9);
+        doc.setFontSize(FS_SMALL);
+        st(GRAY);
+        doc.text(`por ${entry.usuarioNome}`, TX, y + LH_SMALL);
+        y += LH_SMALL + 4;
       }
 
-      // Data
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7.5);
-      setTxt(GRAY);
-      doc.text(fmtDatetime(entry.createdAt), PW - MR, y + 4, { align: "right" });
-
-      y += 12;
-
-      // Mudança de valor
-      if (entry.valorAnterior || entry.valorNovo) {
-        checkPage(10);
-        const antes = entry.valorAnterior ? `De: "${entry.valorAnterior}"` : "";
-        const depois = entry.valorNovo ? `Para: "${entry.valorNovo}"` : "";
-        const changeText = [antes, depois].filter(Boolean).join("  →  ");
-        setFill(LIGHT);
-        setDraw([203, 213, 225]);
-        doc.setLineWidth(0.2);
-        const lines = doc.splitTextToSize(changeText, CW - 12);
-        const boxH = lines.length * 4.5 + 4;
-        doc.roundedRect(ML + 8, y, CW - 8, boxH, 1, 1, "FD");
+      // Caixa de mudança de valor
+      if (changeLines.length > 0) {
+        const boxPadV = 6;
+        const boxPadH = 8;
+        const boxH    = changeLines.length * LH_SMALL + boxPadV * 2;
+        sf(LIGHT);
+        sd([203, 213, 225]);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(TX, y, CW - TX + ML, boxH, 3, 3, "FD");
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(7.5);
-        setTxt(DARK);
-        doc.text(lines, ML + 12, y + 3.5);
-        y += boxH + 2;
+        doc.setFontSize(FS_SMALL);
+        st(DARK);
+        doc.text(changeLines, TX + boxPadH, y + boxPadV + LH_SMALL * 0.85);
+        y += boxH + 6;
       }
 
       // Observação
-      if (entry.observacao) {
-        checkPage(8);
+      if (obsLines.length > 0) {
         doc.setFont("helvetica", "italic");
-        doc.setFontSize(7.5);
-        setTxt(GRAY);
-        const obsLines = doc.splitTextToSize(entry.observacao, CW - 12);
-        doc.text(obsLines, ML + 10, y);
-        y += obsLines.length * 4 + 2;
+        doc.setFontSize(FS_SMALL);
+        st(GRAY);
+        doc.text(obsLines, TX, y + LH_SMALL);
+        y += obsLines.length * LH_SMALL + 6;
       }
 
-      // Linha divisória entre eventos
+      y += 10;
+
+      // Divisória entre eventos
       if (idx < historico.length - 1) {
-        setDraw([226, 232, 240]);
-        doc.setLineWidth(0.2);
-        doc.line(ML + 8, y, ML + CW, y);
-        y += 4;
+        sd([226, 232, 240]);
+        doc.setLineWidth(0.5);
+        doc.line(TX, y - 4, ML + CW, y - 4);
       }
     });
   }
 
   // ── Rodapé em todas as páginas ────────────────────────────────────────────
 
-  const totalPages = (doc as any).internal.getNumberOfPages();
+  const totalPages: number = (doc as any).internal.getNumberOfPages();
   for (let p = 1; p <= totalPages; p++) {
     doc.setPage(p);
-    setFill(LIGHT);
-    doc.rect(0, 287, PW, 10, "F");
+    sf(LIGHT);
+    doc.rect(0, PH - FOOT, PW, FOOT, "F");
+    sd([203, 213, 225]);
+    doc.setLineWidth(0.5);
+    doc.line(0, PH - FOOT, PW, PH - FOOT);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    setTxt(GRAY);
-    doc.text("Covezi Iveco · Sistema de Gestão de Estoque", ML, 293);
-    doc.text(`Página ${p} de ${totalPages}`, PW - MR, 293, { align: "right" });
+    doc.setFontSize(7.5);
+    st(GRAY);
+    doc.text(
+      "Covezi Iveco · Sistema de Gestão de Estoque",
+      ML,
+      PH - FOOT / 2 + 7.5 * 0.35,
+    );
+    doc.text(
+      `Página ${p} de ${totalPages}`,
+      PW - MR,
+      PH - FOOT / 2 + 7.5 * 0.35,
+      { align: "right" },
+    );
   }
 
   // ── Download ──────────────────────────────────────────────────────────────
 
-  const fileName = `veiculo-${(veiculo.chassi ?? veiculo.id ?? "sem-chassi").toString().replace(/\s+/g, "-")}.pdf`;
+  const fileName = `veiculo-${
+    (veiculo.chassi ?? veiculo.id ?? "sem-chassi")
+      .toString()
+      .replace(/\s+/g, "-")
+  }.pdf`;
   doc.save(fileName);
 }
