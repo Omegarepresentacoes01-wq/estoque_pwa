@@ -98,3 +98,6 @@
 ## Exportação PDF (v10)
 - [x] Botão "Baixar PDF" na página de detalhes do veículo
 - [x] PDF com logo Covezi Iveco, todos os campos e histórico de alterações
+
+## Controle de Acesso - Ajustes (v11)
+- [x] Ocultar botão "Editar" na página de detalhes do veículo para colaboradores (somente Admin pode editar)

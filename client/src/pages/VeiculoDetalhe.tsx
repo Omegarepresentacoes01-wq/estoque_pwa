@@ -437,13 +437,15 @@ export default function VeiculoDetalhe() {
             )}
             {!isMobile && (pdfLoading ? "Gerando..." : "PDF")}
           </Button>
-          <Button
-            onClick={() => setEditOpen(true)}
-            size="sm"
-          >
-            <Edit3 className="w-4 h-4 mr-1" />
-            {!isMobile && "Editar"}
-          </Button>
+          {user?.role === "admin" && (
+            <Button
+              onClick={() => setEditOpen(true)}
+              size="sm"
+            >
+              <Edit3 className="w-4 h-4 mr-1" />
+              {!isMobile && "Editar"}
+            </Button>
+          )}
         </div>
       </div>
 
