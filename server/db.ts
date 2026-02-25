@@ -294,18 +294,24 @@ export async function getProgramacaoFiltros() {
 export async function bulkImportVeiculos(rows: InsertVeiculo[]) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  let imported = 0, skipped = 0;
+
+  // Estratégia: a nova planilha é a fonte de verdade.
+  // 1. Apaga todos os veículos existentes.
+  // 2. Insere todos os veículos da nova planilha.
+  // O histórico de alterações é preservado (tabela separada).
+  await db.delete(veiculos);
+
+  let imported = 0;
   const errors: string[] = [];
   for (const row of rows) {
     try {
-      await db.insert(veiculos).values(row).onDuplicateKeyUpdate({ set: { updatedAt: new Date() } });
+      await db.insert(veiculos).values(row);
       imported++;
     } catch (e: any) {
-      skipped++;
       errors.push(e.message);
     }
   }
-  return { imported, skipped, errors: errors.slice(0, 10) };
+  return { imported, skipped: errors.length, errors: errors.slice(0, 10) };
 }
 
 export async function bulkImportProgramacao(rows: InsertProgramacao[]) {

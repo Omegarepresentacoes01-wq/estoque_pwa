@@ -104,3 +104,6 @@
 
 ## Correcção PDF (v12)
 - [x] Corrigir letras cortadas e alinhamento de texto no PDF gerado
+
+## Correcção Importação (v13)
+- [x] Importação de planilha deve substituir os dados existentes, não acumular (nova planilha = fonte de verdade)
