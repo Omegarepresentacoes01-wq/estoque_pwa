@@ -65,125 +65,97 @@ function loadImageAsBase64(url: string): Promise<string | null> {
 
 // ─── Gerador principal ────────────────────────────────────────────────────────
 export async function gerarPDFVeiculo(veiculo: any, historico: any[]): Promise<void> {
-  const doc  = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+  const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
 
-  // Dimensões em pontos (A4 = 595 × 842 pt)
-  const PW   = 595;
-  const PH   = 842;
-  const ML   = 40;   // margem esquerda
-  const MR   = 40;   // margem direita
-  const CW   = PW - ML - MR; // largura do conteúdo = 515 pt
-  const FOOT = 30;   // altura do rodapé
+  // ── Dimensões A4 ──────────────────────────────────────────────────────────
+  const PW   = 595;   // largura total
+  const PH   = 842;   // altura total
+  const ML   = 36;    // margem esquerda
+  const MR   = 36;    // margem direita
+  const CW   = PW - ML - MR; // 523 pt de conteúdo
+  const FOOT = 22;    // altura do rodapé
 
-  // Tipografia: tamanhos em pt, line-height = fontSize * 1.4
-  const FS_LABEL  = 7.5;
-  const FS_VALUE  = 9.5;
-  const FS_SMALL  = 8;
-  const LH_VALUE  = FS_VALUE  * 1.45;
-  const LH_SMALL  = FS_SMALL  * 1.45;
-  const LH_LABEL  = FS_LABEL  * 1.45;
+  // ── Tipografia compacta ───────────────────────────────────────────────────
+  const FS_LABEL = 6.5;
+  const FS_VALUE = 8.5;
+  const FS_SMALL = 7.5;
+  const LH_LABEL = FS_LABEL * 1.3;
+  const LH_VALUE = FS_VALUE * 1.3;
+  const LH_SMALL = FS_SMALL * 1.3;
 
-  let y = 0; // posição vertical corrente (baseline da próxima linha)
+  let y = 0;
 
-  // ── Helpers ─────────────────────────────────────────────────────────────────
-
+  // ── Helpers ───────────────────────────────────────────────────────────────
   const sf = (c: [number,number,number]) => doc.setFillColor(c[0], c[1], c[2]);
   const sd = (c: [number,number,number]) => doc.setDrawColor(c[0], c[1], c[2]);
   const st = (c: [number,number,number]) => doc.setTextColor(c[0], c[1], c[2]);
 
-  /** Garante que há espaço suficiente; se não, adiciona página. */
   function ensureSpace(needed: number) {
-    if (y + needed > PH - FOOT - 10) {
+    if (y + needed > PH - FOOT - 8) {
       doc.addPage();
       y = ML;
     }
   }
 
-  /**
-   * Escreve um bloco label + valor e retorna a altura total consumida.
-   * x      = posição X absoluta
-   * maxW   = largura máxima disponível para o texto
-   */
-  function writeField(
-    label: string,
-    value: string,
-    x: number,
-    maxW: number,
-  ): number {
-    // Label
+  /** Escreve label + valor numa coluna; retorna altura consumida */
+  function writeField(label: string, value: string, x: number, maxW: number): number {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(FS_LABEL);
     st(GRAY);
     doc.text(label.toUpperCase(), x, y);
 
-    // Valor (pode ter múltiplas linhas)
     doc.setFont("helvetica", "normal");
     doc.setFontSize(FS_VALUE);
     st(DARK);
     const lines: string[] = doc.splitTextToSize(value, maxW);
-    const valueY = y + LH_LABEL + 2; // espaço entre label e valor
-    doc.text(lines, x, valueY);
-
-    // Altura total = label + espaço + linhas de valor
-    return LH_LABEL + 2 + lines.length * LH_VALUE + 4;
+    doc.text(lines, x, y + LH_LABEL + 1);
+    return LH_LABEL + 1 + lines.length * LH_VALUE + 2;
   }
 
-  /**
-   * Renderiza pares de campos em duas colunas.
-   * Cada par ocupa a mesma altura (máximo das duas colunas).
-   */
+  /** Renderiza pares de campos em 2 colunas */
   function twoColSection(rows: { label: string; value: string }[]) {
-    const colW = (CW - 20) / 2; // 20 pt de gap entre colunas
+    const GAP  = 16;
+    const colW = (CW - GAP) / 2;
 
     for (let i = 0; i < rows.length; i += 2) {
       const left  = rows[i];
       const right = rows[i + 1];
 
-      // Calcula alturas sem desenhar para reservar espaço
       doc.setFont("helvetica", "normal");
       doc.setFontSize(FS_VALUE);
       const linesL = doc.splitTextToSize(left.value, colW);
       const linesR = right ? doc.splitTextToSize(right.value, colW) : [];
-      const rowH   = LH_LABEL + 2 + Math.max(linesL.length, linesR.length || 1) * LH_VALUE + 12;
+      const rowH   = LH_LABEL + 1 + Math.max(linesL.length, linesR.length || 1) * LH_VALUE + 8;
 
       ensureSpace(rowH);
-
-      // Desenha coluna esquerda
       writeField(left.label, left.value, ML, colW);
-
-      // Desenha coluna direita (se existir e não for vazia)
-      if (right && right.label) {
-        writeField(right.label, right.value, ML + colW + 20, colW);
-      }
+      if (right && right.label) writeField(right.label, right.value, ML + colW + GAP, colW);
 
       y += rowH;
 
-      // Linha divisória
       sd([226, 232, 240]);
-      doc.setLineWidth(0.5);
-      doc.line(ML, y - 6, ML + CW, y - 6);
+      doc.setLineWidth(0.4);
+      doc.line(ML, y - 4, ML + CW, y - 4);
     }
   }
 
-  /** Título de secção com fundo claro */
+  /** Título de secção compacto */
   function sectionTitle(title: string) {
-    ensureSpace(28);
-    const boxH = 20;
+    ensureSpace(20);
+    const boxH = 15;
     sf(LIGHT);
     sd(PRIMARY);
-    doc.setLineWidth(0.5);
-    doc.roundedRect(ML, y, CW, boxH, 3, 3, "FD");
+    doc.setLineWidth(0.4);
+    doc.roundedRect(ML, y, CW, boxH, 2, 2, "FD");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
+    doc.setFontSize(7.5);
     st(PRIMARY);
-    // Centraliza verticalmente: baseline = y + boxH/2 + fontSize*0.35
-    doc.text(title.toUpperCase(), ML + 10, y + boxH / 2 + 9 * 0.35 + 1);
-    y += boxH + 10;
+    doc.text(title.toUpperCase(), ML + 8, y + boxH / 2 + 7.5 * 0.35 + 0.5);
+    y += boxH + 6;
   }
 
-  // ── Cabeçalho ────────────────────────────────────────────────────────────────
-
-  const HEADER_H = 80;
+  // ── Cabeçalho compacto (55 pt) ────────────────────────────────────────────
+  const HEADER_H = 55;
   sf(PRIMARY);
   doc.rect(0, 0, PW, HEADER_H, "F");
 
@@ -191,77 +163,73 @@ export async function gerarPDFVeiculo(veiculo: any, historico: any[]): Promise<v
     "https://static.manus.space/files/covezi-logo-main.png",
   );
   if (logoB64) {
-    // Logo: altura 36 pt, largura proporcional (aprox 2.8:1)
-    doc.addImage(logoB64, "PNG", ML, 22, 100, 36);
+    doc.addImage(logoB64, "PNG", ML, 12, 85, 30);
   } else {
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
+    doc.setFontSize(14);
     st(WHITE);
-    doc.text("COVEZI IVECO", ML, 48);
+    doc.text("COVEZI IVECO", ML, 34);
   }
 
-  // Título à direita
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
+  doc.setFontSize(13);
   st(WHITE);
-  doc.text("FICHA DO VEÍCULO", PW - MR, 38, { align: "right" });
+  doc.text("FICHA DO VEÍCULO", PW - MR, 28, { align: "right" });
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(FS_SMALL);
+  doc.setFontSize(7);
   st([186, 214, 255] as [number,number,number]);
-  doc.text(`Gerado em ${fmtDatetime(new Date())}`, PW - MR, 38 + LH_SMALL, { align: "right" });
+  doc.text(`Gerado em ${fmtDatetime(new Date())}`, PW - MR, 28 + LH_SMALL, { align: "right" });
 
-  y = HEADER_H + 20;
+  y = HEADER_H + 12;
 
-  // ── Identificação do veículo ──────────────────────────────────────────────
-
-  // Modelo
+  // ── Modelo + badges ───────────────────────────────────────────────────────
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(18);
+  doc.setFontSize(14);
   st(DARK);
   const modeloLines: string[] = doc.splitTextToSize(fmt(veiculo.modelo), CW);
   doc.text(modeloLines, ML, y);
-  y += modeloLines.length * 18 * 1.3 + 6;
+  y += modeloLines.length * 14 * 1.25 + 4;
 
-  // Badges de status
+  // Badges
   const status      = (veiculo.status ?? "").toUpperCase();
   const statusColor = status === "LIVRE" ? GREEN : status === "RESERVADO" ? AMBER : GRAY;
-  const BADGE_H     = 16;
-  const BADGE_PAD   = 10;
+  const BADGE_H     = 13;
+  const BADGE_PAD   = 8;
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
+  doc.setFontSize(7);
   const statusW = doc.getTextWidth(status) + BADGE_PAD * 2;
   sf(statusColor);
-  doc.roundedRect(ML, y, statusW, BADGE_H, 3, 3, "F");
+  doc.roundedRect(ML, y, statusW, BADGE_H, 2, 2, "F");
   st(WHITE);
-  doc.text(status, ML + statusW / 2, y + BADGE_H / 2 + 8 * 0.35, { align: "center" });
+  doc.text(status, ML + statusW / 2, y + BADGE_H / 2 + 7 * 0.35, { align: "center" });
 
-  let badgeX = ML + statusW + 8;
   if (Math.abs(veiculo.diasEstoque ?? 0) > 180) {
     const critW = doc.getTextWidth("CRÍTICO") + BADGE_PAD * 2;
     sf(RED);
-    doc.roundedRect(badgeX, y, critW, BADGE_H, 3, 3, "F");
+    doc.roundedRect(ML + statusW + 6, y, critW, BADGE_H, 2, 2, "F");
     st(WHITE);
-    doc.text("CRÍTICO", badgeX + critW / 2, y + BADGE_H / 2 + 8 * 0.35, { align: "center" });
-    badgeX += critW + 8;
+    doc.text("CRÍTICO", ML + statusW + 6 + critW / 2, y + BADGE_H / 2 + 7 * 0.35, { align: "center" });
   }
 
-  y += BADGE_H + 10;
+  y += BADGE_H + 7;
 
   // Chassi / NF
   doc.setFont("helvetica", "normal");
   doc.setFontSize(FS_SMALL);
   st(GRAY);
-  const chassiLine = `Chassi: ${fmt(veiculo.chassi)}${veiculo.nf ? `   ·   NF: ${veiculo.nf}` : ""}`;
-  doc.text(chassiLine, ML, y);
-  y += LH_SMALL + 8;
+  doc.text(
+    `Chassi: ${fmt(veiculo.chassi)}${veiculo.nf ? `   ·   NF: ${veiculo.nf}` : ""}`,
+    ML, y,
+  );
+  y += LH_SMALL + 6;
 
   // Separador
   sd([203, 213, 225]);
-  doc.setLineWidth(0.75);
+  doc.setLineWidth(0.6);
   doc.line(ML, y, ML + CW, y);
-  y += 16;
+  y += 10;
 
   // ── Secções de dados ──────────────────────────────────────────────────────
 
@@ -303,13 +271,11 @@ export async function gerarPDFVeiculo(veiculo: any, historico: any[]): Promise<v
     { label: "",           value: "" },
   ]);
 
-  // ── Histórico ─────────────────────────────────────────────────────────────
-
+  // ── Histórico (continua em páginas adicionais se necessário) ──────────────
   if (historico.length > 0) {
     sectionTitle(`Histórico de Alterações (${historico.length} registros)`);
 
     historico.forEach((entry, idx) => {
-      // Estima altura necessária para este evento
       doc.setFont("helvetica", "normal");
       doc.setFontSize(FS_VALUE);
       const changeLines = (entry.valorAnterior || entry.valorNovo)
@@ -318,127 +284,107 @@ export async function gerarPDFVeiculo(veiculo: any, historico: any[]): Promise<v
               entry.valorAnterior ? `De: "${entry.valorAnterior}"` : "",
               entry.valorNovo     ? `Para: "${entry.valorNovo}"`   : "",
             ].filter(Boolean).join("   →   "),
-            CW - 60,
+            CW - 50,
           )
         : [];
       const obsLines = entry.observacao
-        ? doc.splitTextToSize(entry.observacao, CW - 60)
+        ? doc.splitTextToSize(entry.observacao, CW - 50)
         : [];
 
       const eventH =
-        LH_VALUE + 4 +                        // tipo
+        LH_VALUE + 3 +
         (entry.usuarioNome ? LH_SMALL + 2 : 0) +
-        (changeLines.length > 0 ? changeLines.length * LH_SMALL + 16 : 0) +
-        (obsLines.length    > 0 ? obsLines.length    * LH_SMALL + 6  : 0) +
-        12;
+        (changeLines.length > 0 ? changeLines.length * LH_SMALL + 12 : 0) +
+        (obsLines.length    > 0 ? obsLines.length    * LH_SMALL + 4  : 0) +
+        10;
 
       ensureSpace(eventH);
 
       const rowStartY = y;
+      const CX = ML + 8;
+      const CY = rowStartY + 8;
 
-      // Círculo numerado
-      const CX = ML + 10;
-      const CY = rowStartY + 10;
       sf(PRIMARY);
-      doc.circle(CX, CY, 9, "F");
+      doc.circle(CX, CY, 7, "F");
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(7.5);
+      doc.setFontSize(6.5);
       st(WHITE);
-      doc.text(String(historico.length - idx), CX, CY + 7.5 * 0.35, { align: "center" });
+      doc.text(String(historico.length - idx), CX, CY + 6.5 * 0.35, { align: "center" });
 
-      const TX = ML + 26; // X do texto após o círculo
+      const TX = ML + 22;
 
-      // Tipo do evento
       doc.setFont("helvetica", "bold");
       doc.setFontSize(FS_VALUE);
       st(DARK);
       doc.text(tipoLabel(entry.tipo, entry.campo), TX, rowStartY + LH_VALUE);
 
-      // Data (alinhada à direita)
       doc.setFont("helvetica", "normal");
       doc.setFontSize(FS_SMALL);
       st(GRAY);
       doc.text(fmtDatetime(entry.createdAt), PW - MR, rowStartY + LH_VALUE, { align: "right" });
 
-      y = rowStartY + LH_VALUE + 4;
+      y = rowStartY + LH_VALUE + 3;
 
-      // Usuário
       if (entry.usuarioNome) {
         doc.setFont("helvetica", "italic");
         doc.setFontSize(FS_SMALL);
         st(GRAY);
         doc.text(`por ${entry.usuarioNome}`, TX, y + LH_SMALL);
-        y += LH_SMALL + 4;
+        y += LH_SMALL + 3;
       }
 
-      // Caixa de mudança de valor
       if (changeLines.length > 0) {
-        const boxPadV = 6;
-        const boxPadH = 8;
+        const boxPadV = 5;
+        const boxPadH = 7;
         const boxH    = changeLines.length * LH_SMALL + boxPadV * 2;
         sf(LIGHT);
         sd([203, 213, 225]);
-        doc.setLineWidth(0.5);
-        doc.roundedRect(TX, y, CW - TX + ML, boxH, 3, 3, "FD");
+        doc.setLineWidth(0.4);
+        doc.roundedRect(TX, y, CW - TX + ML, boxH, 2, 2, "FD");
         doc.setFont("helvetica", "normal");
         doc.setFontSize(FS_SMALL);
         st(DARK);
         doc.text(changeLines, TX + boxPadH, y + boxPadV + LH_SMALL * 0.85);
-        y += boxH + 6;
+        y += boxH + 5;
       }
 
-      // Observação
       if (obsLines.length > 0) {
         doc.setFont("helvetica", "italic");
         doc.setFontSize(FS_SMALL);
         st(GRAY);
         doc.text(obsLines, TX, y + LH_SMALL);
-        y += obsLines.length * LH_SMALL + 6;
+        y += obsLines.length * LH_SMALL + 4;
       }
 
-      y += 10;
+      y += 8;
 
-      // Divisória entre eventos
       if (idx < historico.length - 1) {
         sd([226, 232, 240]);
-        doc.setLineWidth(0.5);
-        doc.line(TX, y - 4, ML + CW, y - 4);
+        doc.setLineWidth(0.4);
+        doc.line(TX, y - 3, ML + CW, y - 3);
       }
     });
   }
 
   // ── Rodapé em todas as páginas ────────────────────────────────────────────
-
   const totalPages: number = (doc as any).internal.getNumberOfPages();
   for (let p = 1; p <= totalPages; p++) {
     doc.setPage(p);
     sf(LIGHT);
     doc.rect(0, PH - FOOT, PW, FOOT, "F");
     sd([203, 213, 225]);
-    doc.setLineWidth(0.5);
+    doc.setLineWidth(0.4);
     doc.line(0, PH - FOOT, PW, PH - FOOT);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
+    doc.setFontSize(7);
     st(GRAY);
-    doc.text(
-      "Covezi Iveco · Sistema de Gestão de Estoque",
-      ML,
-      PH - FOOT / 2 + 7.5 * 0.35,
-    );
-    doc.text(
-      `Página ${p} de ${totalPages}`,
-      PW - MR,
-      PH - FOOT / 2 + 7.5 * 0.35,
-      { align: "right" },
-    );
+    doc.text("Covezi Iveco · Sistema de Gestão de Estoque", ML, PH - FOOT / 2 + 7 * 0.35);
+    doc.text(`Página ${p} de ${totalPages}`, PW - MR, PH - FOOT / 2 + 7 * 0.35, { align: "right" });
   }
 
   // ── Download ──────────────────────────────────────────────────────────────
-
   const fileName = `veiculo-${
-    (veiculo.chassi ?? veiculo.id ?? "sem-chassi")
-      .toString()
-      .replace(/\s+/g, "-")
+    (veiculo.chassi ?? veiculo.id ?? "sem-chassi").toString().replace(/\s+/g, "-")
   }.pdf`;
   doc.save(fileName);
 }

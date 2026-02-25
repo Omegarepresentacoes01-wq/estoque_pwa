@@ -112,3 +112,6 @@
 - [x] Backend: procedure para actualizar role do colaborador (admin/colaborador)
 - [x] UI: botão de edição em cada colaborador com opção de promover/rebaixar role
 - [x] Todos os utilizadores no sistema devem ter opção de edição visível
+
+## Correcção PDF Layout (v15)
+- [x] PDF do veículo deve caber em uma única página A4 (sem histórico, apenas dados do veículo)
