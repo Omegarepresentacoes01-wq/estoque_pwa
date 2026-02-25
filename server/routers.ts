@@ -14,6 +14,7 @@ import {
   addHistorico, getHistoricoByVeiculoId, updateVeiculoComHistorico,
   getColaboradores, getColaboradorByEmail, getColaboradorById,
   upsertColaborador, updateColaboradorStatus, deleteColaborador, updateColaboradorLastAccess,
+  updateColaboradorRole, updateColaboradorNome,
   setColaboradorPassword,
   createInvite, getInviteByToken, getInvites, acceptInvite, revokeInvite, expireOldInvites,
 } from "./db";
@@ -399,6 +400,26 @@ export const appRouter = router({
       const user = await getOwnUser(ctx.req);
       requireAdmin(user);
       await updateColaboradorStatus(input.id, input.status);
+      return { success: true };
+    }),
+
+    updateRole: publicProcedure.input(z.object({
+      id: z.number(),
+      role: z.enum(['colaborador', 'admin']),
+    })).mutation(async ({ input, ctx }) => {
+      const user = await getOwnUser(ctx.req);
+      requireAdmin(user);
+      await updateColaboradorRole(input.id, input.role);
+      return { success: true };
+    }),
+
+    updateNome: publicProcedure.input(z.object({
+      id: z.number(),
+      nome: z.string().min(2, 'Nome obrigatório'),
+    })).mutation(async ({ input, ctx }) => {
+      const user = await getOwnUser(ctx.req);
+      requireAdmin(user);
+      await updateColaboradorNome(input.id, input.nome.trim());
       return { success: true };
     }),
   }),

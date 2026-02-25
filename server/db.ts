@@ -426,6 +426,18 @@ export async function deleteColaborador(id: number) {
   await db.delete(colaboradores).where(eq(colaboradores.id, id));
 }
 
+export async function updateColaboradorRole(id: number, role: 'colaborador' | 'admin') {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(colaboradores).set({ role }).where(eq(colaboradores.id, id));
+}
+
+export async function updateColaboradorNome(id: number, nome: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(colaboradores).set({ nome }).where(eq(colaboradores.id, id));
+}
+
 export async function updateColaboradorLastAccess(id: number) {
   const db = await getDb();
   if (!db) return;

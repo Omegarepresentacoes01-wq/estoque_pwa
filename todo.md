@@ -107,3 +107,8 @@
 
 ## Correcção Importação (v13)
 - [x] Importação de planilha deve substituir os dados existentes, não acumular (nova planilha = fonte de verdade)
+
+## Gestão de Colaboradores - Edição de Role (v14)
+- [x] Backend: procedure para actualizar role do colaborador (admin/colaborador)
+- [x] UI: botão de edição em cada colaborador com opção de promover/rebaixar role
+- [x] Todos os utilizadores no sistema devem ter opção de edição visível
